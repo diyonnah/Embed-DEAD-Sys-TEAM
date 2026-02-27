@@ -13,6 +13,11 @@ const int ledPin1 = 16;
 const int ledPin2 = 18;
 const int ledPin3 = 27;
 
+// state
+bool led1State = false;
+bool led2State = false;
+bool led3State = false;
+
 // HTML page
 void handleRoot() {
   String html = "<!DOCTYPE html><html>";
