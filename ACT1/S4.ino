@@ -3,8 +3,8 @@
 #include <WebServer.h>
 
 // Your WiFi network name and password so the ESP32 can connect to your router.
-const char* ssid = "Sol-Deco5";
-const char* password = "Sol3d@dC";
+const char* ssid = "CPE WIFI";
+const char* password = "CP3Wi-Fi2025**";
 
 // Creates a web server that listens on port 80 (the standard HTTP port).
 WebServer server(80);
@@ -26,7 +26,6 @@ bool led3State = false;
 // 5000 Hz is the frequency (how fast it pulses). 8-bit resolution means
 // brightness can be set from 0 (off) to 255 (full brightness).
 int led3Brightness = 0;
-const int pwmChannel = 0;
 const int pwmFreq = 5000;
 const int pwmResolution = 8;  // 8-bit = 0 to 255
 
@@ -97,34 +96,28 @@ void handleRoot() {
 
   // =====================================================
   // TAB 1: S1 CONTENT (Basic Buttons)
-  // Simple ON and OFF buttons for each LED. Clicking a button
-  // sends the browser to a URL like /led1on, which the ESP32
-  // catches and uses to turn the physical LED on or off.
   // =====================================================
   html += "<div id='Tab1' class='tabcontent'>";
   html += "<h3>Basic Control</h3>";
   
   html += "<h4>LED 1 (Blue)</h4>";
-  html += "<p>Status: <b>" + String(led1State ? "ON" : "OFF") + "</b></p>";
-  html += "<a href='/led1on'><button class='btn'>Turn ON</button></a><br>";
-  html += "<a href='/led1off'><button class='btn btn-off'>Turn OFF</button></a><hr>";
+  html += "<p>Status: <b id='status1_tab1'>" + String(led1State ? "ON" : "OFF") + "</b></p>";
+  html += "<button class='btn' onclick='controlLED(1, \"on\")'>Turn ON</button><br>";
+  html += "<button class='btn btn-off' onclick='controlLED(1, \"off\")'>Turn OFF</button><hr>";
 
   html += "<h4>LED 2 (Red)</h4>";
-  html += "<p>Status: <b>" + String(led2State ? "ON" : "OFF") + "</b></p>";
-  html += "<a href='/led2on'><button class='btn'>Turn ON</button></a><br>";
-  html += "<a href='/led2off'><button class='btn btn-off'>Turn OFF</button></a><hr>";
+  html += "<p>Status: <b id='status2_tab1'>" + String(led2State ? "ON" : "OFF") + "</b></p>";
+  html += "<button class='btn' onclick='controlLED(2, \"on\")'>Turn ON</button><br>";
+  html += "<button class='btn btn-off' onclick='controlLED(2, \"off\")'>Turn OFF</button><hr>";
 
   html += "<h4>LED 3 (Yellow)</h4>";
-  html += "<p>Status: <b>" + String(led3State ? "ON" : "OFF") + "</b></p>";
-  html += "<a href='/led3on'><button class='btn'>Turn ON</button></a><br>";
-  html += "<a href='/led3off'><button class='btn btn-off'>Turn OFF</button></a>";
+  html += "<p>Status: <b id='status3_tab1'>" + String(led3State ? "ON" : "OFF") + "</b></p>";
+  html += "<button class='btn' onclick='controlLED(3, \"on\")'>Turn ON</button><br>";
+  html += "<button class='btn btn-off' onclick='controlLED(3, \"off\")'>Turn OFF</button>";
   html += "</div>";
 
   // =====================================================
   // TAB 2: S2 CONTENT (Toggle Switches)
-  // Each LED has a toggle switch. When toggled, the browser
-  // visits /led1toggle (etc.), and the ESP32 flips the LED
-  // state — if it was ON it turns OFF, and vice versa.
   // =====================================================
   html += "<div id='Tab2' class='tabcontent'>";
   html += "<h3>Toggle Control</h3>";
@@ -132,34 +125,30 @@ void handleRoot() {
   html += "<div class='led-card'>";
   html += "<h2>LED 1 (Blue)</h2>";
   html += "<label class='switch'>";
-  html += "<input type='checkbox' " + String(led1State ? "checked" : "") + " onchange=\"window.location.href='/led1toggle'\">";
+  html += "<input type='checkbox' id='toggle1' " + String(led1State ? "checked" : "") + " onchange='toggleLED(1)'>";
   html += "<span class='slider'></span></label>";
-  html += "<p class='status'>Status: <b>" + String(led1State ? "ON" : "OFF") + "</b></p>";
+  html += "<p class='status'>Status: <b id='status1_tab2'>" + String(led1State ? "ON" : "OFF") + "</b></p>";
   html += "</div>";
 
   html += "<div class='led-card'>";
   html += "<h2>LED 2 (Red)</h2>";
   html += "<label class='switch'>";
-  html += "<input type='checkbox' " + String(led2State ? "checked" : "") + " onchange=\"window.location.href='/led2toggle'\">";
+  html += "<input type='checkbox' id='toggle2' " + String(led2State ? "checked" : "") + " onchange='toggleLED(2)'>";
   html += "<span class='slider'></span></label>";
-  html += "<p class='status'>Status: <b>" + String(led2State ? "ON" : "OFF") + "</b></p>";
+  html += "<p class='status'>Status: <b id='status2_tab2'>" + String(led2State ? "ON" : "OFF") + "</b></p>";
   html += "</div>";
 
   html += "<div class='led-card'>";
   html += "<h2>LED 3 (Yellow)</h2>";
   html += "<label class='switch'>";
-  html += "<input type='checkbox' " + String(led3State ? "checked" : "") + " onchange=\"window.location.href='/led3toggle'\">";
+  html += "<input type='checkbox' id='toggle3' " + String(led3State ? "checked" : "") + " onchange='toggleLED(3)'>";
   html += "<span class='slider'></span></label>";
-  html += "<p class='status'>Status: <b>" + String(led3State ? "ON" : "OFF") + "</b></p>";
+  html += "<p class='status'>Status: <b id='status3_tab2'>" + String(led3State ? "ON" : "OFF") + "</b></p>";
   html += "</div>";
   html += "</div>";
 
   // =====================================================
   // TAB 3: S3 CONTENT (PWM Slider)
-  // A range slider (0-255) that controls the brightness of
-  // LED 3 (Yellow). Instead of a full page reload, it uses
-  // fetch() to silently send the brightness value to the
-  // ESP32 in the background, so the slider feels instant.
   // =====================================================
   html += "<div id='Tab3' class='tabcontent'>";
   html += "<h3>PWM Control</h3>";
@@ -171,16 +160,14 @@ void handleRoot() {
   html += "<input type='range' class='knob-range' id='brightSlider' min='0' max='255' value='" + String(led3Brightness) + "' oninput='updateKnob(this.value)' onchange='sendBrightness(this.value)'>";
   html += "<div style='font-size:13px; color:#555;'>&#9664; Dim &nbsp;&nbsp;&nbsp; Bright &#9654;</div>";
   html += "</div>";
-  html += "<p class='status'>Status: <b id='ledStatus'>" + String(led3Brightness > 0 ? "ON" : "OFF") + "</b></p>";
+  html += "<p class='status'>Status: <b id='status3_tab3'>" + String(led3State ? "ON" : "OFF") + "</b></p>";
   html += "</div>";
   html += "</div>";
 
   // =====================================================
-  // JAVASCRIPT (Para sa Tabs at Slider)
+  // JAVASCRIPT (AJAX & UI Sync)
   // =====================================================
   html += "<script>";
-  // openTab() hides all tab panels, removes 'active' from all tab buttons,
-  // then shows only the selected tab panel and marks its button as active.
   html += "function openTab(tabName) {";
   html += "  var i, tabcontent, tablinks;";
   html += "  tabcontent = document.getElementsByClassName('tabcontent');";
@@ -191,22 +178,70 @@ void handleRoot() {
   html += "  document.getElementById('btn' + tabName).className += ' active';";
   html += "}";
   
-  // On page load, read the ?tab=TabX value from the URL.
-  // This keeps the user on the same tab after the page refreshes
-  // (e.g., after clicking ON/OFF in Tab 1, it reloads to /?tab=Tab1).
   html += "const urlParams = new URLSearchParams(window.location.search);";
   html += "const activeTab = urlParams.get('tab') || 'Tab1';";
   html += "openTab(activeTab);";
 
-  // updateKnob() updates the number display as the user drags the slider.
-  // sendBrightness() sends the final value to the ESP32 using fetch (no page reload).
+  // Function to update UI elements across all tabs
+  html += "function updateUI(led, state, brightness = null) {";
+  html += "  let statusText = state ? 'ON' : 'OFF';";
+  html += "  if(led === 1) {";
+  html += "    document.getElementById('status1_tab1').innerText = statusText;";
+  html += "    document.getElementById('status1_tab2').innerText = statusText;";
+  html += "    document.getElementById('toggle1').checked = state;";
+  html += "  }";
+  html += "  if(led === 2) {";
+  html += "    document.getElementById('status2_tab1').innerText = statusText;";
+  html += "    document.getElementById('status2_tab2').innerText = statusText;";
+  html += "    document.getElementById('toggle2').checked = state;";
+  html += "  }";
+  html += "  if(led === 3) {";
+  html += "    document.getElementById('status3_tab1').innerText = statusText;";
+  html += "    document.getElementById('status3_tab2').innerText = statusText;";
+  html += "    document.getElementById('status3_tab3').innerText = statusText;";
+  html += "    document.getElementById('toggle3').checked = state;";
+  html += "    if(brightness !== null) {";
+  html += "      document.getElementById('brightSlider').value = brightness;";
+  html += "      document.getElementById('brightVal').innerText = brightness;";
+  html += "    } else {";
+  html += "      document.getElementById('brightSlider').value = state ? 255 : 0;";
+  html += "      document.getElementById('brightVal').innerText = state ? 255 : 0;";
+  html += "    }";
+  html += "  }";
+  html += "}";
+
+  // AJAX calls for Basic Buttons
+  html += "function controlLED(led, action) {";
+  html += "  fetch('/led' + led + action)";
+  html += "    .then(response => response.text())";
+  html += "    .then(state => updateUI(led, state === '1'));";
+  html += "}";
+
+  // AJAX calls for Toggle Switches
+  html += "function toggleLED(led) {";
+  html += "  fetch('/led' + led + 'toggle')";
+  html += "    .then(response => response.text())";
+  html += "    .then(state => updateUI(led, state === '1'));";
+  html += "}";
+
+  // AJAX calls for PWM Slider
   html += "function updateKnob(val) {";
   html += "  document.getElementById('brightVal').innerText = val;";
   html += "}";
   html += "function sendBrightness(val) {";
   html += "  fetch('/led3brightness?value=' + val)";
-  html += "    .then(() => { document.getElementById('ledStatus').innerText = val > 0 ? 'ON' : 'OFF'; });";
+  html += "    .then(() => updateUI(3, val > 0, val));";
   html += "}";
+  
+  // Polling to keep multiple devices in sync (optional, checks every 2 seconds)
+  html += "setInterval(() => {";
+  html += "  fetch('/status').then(res => res.json()).then(data => {";
+  html += "    updateUI(1, data.led1);";
+  html += "    updateUI(2, data.led2);";
+  html += "    updateUI(3, data.led3, data.bright3);";
+  html += "  });";
+  html += "}, 2000);";
+
   html += "</script>";
 
   html += "</body></html>";
@@ -215,91 +250,84 @@ void handleRoot() {
 
 // =====================================================
 // S1 HANDLERS (Basic Buttons)
-// Each function runs when the browser visits its matching URL.
-// It sets the pin HIGH or LOW, updates the state variable,
-// then redirects back to the same tab so the page refreshes.
 // =====================================================
 void handleLED1on() {
   digitalWrite(ledPin1, HIGH);
   led1State = true;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "1");
 }
 void handleLED1off() {
   digitalWrite(ledPin1, LOW);
   led1State = false;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "0");
 }
 void handleLED2on() {
   digitalWrite(ledPin2, HIGH);
   led2State = true;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "1");
 }
 void handleLED2off() {
   digitalWrite(ledPin2, LOW);
   led2State = false;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "0");
 }
 void handleLED3on() {
-  ledcWrite(pwmChannel, 255); // Use PWM channel for LED3
+  ledcWrite(ledPin3, 255);
   led3State = true;
   led3Brightness = 255;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "1");
 }
 void handleLED3off() {
-  ledcWrite(pwmChannel, 0); // Use PWM channel for LED3
+  ledcWrite(ledPin3, 0);
   led3State = false;
   led3Brightness = 0;
-  server.sendHeader("Location", "/?tab=Tab1");
-  server.send(303);
+  server.send(200, "text/plain", "0");
 }
 
 // =====================================================
 // S2 HANDLERS (Toggle Switches)
-// Each function flips (negates) the current LED state using the
-// ! (NOT) operator, then writes the new value to the pin.
-// LED 3 uses ledcWrite instead of digitalWrite because it is
-// connected to a PWM channel.
 // =====================================================
 void handleLED1toggle() {
   led1State = !led1State;
   digitalWrite(ledPin1, led1State ? HIGH : LOW);
-  server.sendHeader("Location", "/?tab=Tab2");
-  server.send(303);
+  server.send(200, "text/plain", led1State ? "1" : "0");
 }
 void handleLED2toggle() {
   led2State = !led2State;
   digitalWrite(ledPin2, led2State ? HIGH : LOW);
-  server.sendHeader("Location", "/?tab=Tab2");
-  server.send(303);
+  server.send(200, "text/plain", led2State ? "1" : "0");
 }
 void handleLED3toggle() {
   led3State = !led3State;
   led3Brightness = led3State ? 255 : 0;
-  ledcWrite(pwmChannel, led3Brightness); // Use PWM channel for LED3
-  server.sendHeader("Location", "/?tab=Tab2");
-  server.send(303);
+  ledcWrite(ledPin3, led3Brightness);
+  server.send(200, "text/plain", led3State ? "1" : "0");
 }
 
 // =====================================================
 // S3 HANDLER (PWM Slider)
-// Called silently by fetch() when the user moves the slider.
-// Reads the 'value' from the URL query string, clamps it to
-// 0-255, writes it to the PWM channel to set brightness,
-// and also syncs the ON/OFF state used by Tabs 1 and 2.
 // =====================================================
 void handleLED3brightness() {
   if (server.hasArg("value")) {
     led3Brightness = server.arg("value").toInt();
     led3Brightness = constrain(led3Brightness, 0, 255);
-    ledcWrite(pwmChannel, led3Brightness);
-    led3State = (led3Brightness > 0); // Sync state for S1/S2
+    ledcWrite(ledPin3, led3Brightness);
+    led3State = (led3Brightness > 0);
   }
   server.send(200, "text/plain", "OK");
+}
+
+// =====================================================
+// STATUS HANDLER (For Polling)
+// =====================================================
+void handleStatus() {
+  String json = "{";
+  json += "\"led1\":" + String(led1State ? "true" : "false") + ",";
+  json += "\"led2\":" + String(led2State ? "true" : "false") + ",";
+  json += "\"led3\":" + String(led3State ? "true" : "false") + ",";
+  json += "\"bright3\":" + String(led3Brightness);
+  json += "}";
+  server.send(200, "application/json", json);
 }
 
 // =====================================================
@@ -316,11 +344,10 @@ void setup() {
   digitalWrite(ledPin1, LOW);
   digitalWrite(ledPin2, LOW);
 
-  // Configure LED 3 for PWM: assign the channel settings, attach the pin,
+  // Configure LED 3 for PWM: attach the pin with frequency and resolution,
   // and write 0 so it starts fully off.
-  ledcSetup(pwmChannel, pwmFreq, pwmResolution);
-  ledcAttachPin(ledPin3, pwmChannel);
-  ledcWrite(pwmChannel, 0);
+  ledcAttach(ledPin3, pwmFreq, pwmResolution);
+  ledcWrite(ledPin3, 0);
 
   // Connect to WiFi. The dots printed in the loop show it is still trying.
   Serial.println("Connecting to WiFi...");
@@ -335,7 +362,9 @@ void setup() {
   // on the same network to access the web interface.
   Serial.println("\nConnected!");
   Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.localIP().toString());
+  Serial.flush(); // Wait for the serial data to finish sending
+  delay(100);
 
   // Register each URL route with its handler function.
   // When the browser visits a URL, the matching function runs.
@@ -356,6 +385,9 @@ void setup() {
   
   // S3 Route
   server.on("/led3brightness", handleLED3brightness);
+
+  // Status Route for Polling
+  server.on("/status", handleStatus);
 
   server.begin(); // Start the web server.
   Serial.println("Web server started.");
