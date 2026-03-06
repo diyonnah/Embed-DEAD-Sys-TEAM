@@ -149,7 +149,7 @@ void handleRoot() {
 
   // ── App Header ──
   html += "<div class='app-header'>";
-  html += "<div class='app-title'>Laboratory 1</div>";
+  html += "<div class='app-title'>GROUP 2 Laboratory 1</div>";
   html += "<div class='app-subtitle'>Controlling an LED using NodeMCU over Wi-Fi</div>";
   html += "<div class='device-chip'>ESP32 WROOM &nbsp;&middot;&nbsp; WebServer</div>";
   html += "</div>";
