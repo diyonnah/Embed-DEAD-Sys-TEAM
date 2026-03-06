@@ -48,6 +48,27 @@
       background-attachment: fixed;
       color: var(--text-1);
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Proportional Container ── */
+    .app-shell {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 40px; /* space for fixed footer */
+    }
+    .app-shell .page-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-shell .dashboard-grid {
+      flex: 1;
     }
 
     /* ── App Header ── */
@@ -133,6 +154,37 @@
       }
     }
 
+    /* ── Portrait orientation (height > width) ── */
+    @media (orientation: portrait) {
+      .app-shell {
+        max-width: 100%;
+      }
+      .page-section {
+        padding: 24px 20px 32px;
+      }
+      .dashboard-grid {
+        gap: 14px;
+      }
+      .dashboard-col {
+        gap: 14px;
+      }
+      .control-card {
+        padding: 22px;
+      }
+      .metric-value {
+        font-size: 52px;
+      }
+      .fan-card {
+        padding: 22px;
+      }
+      .stat-card {
+        padding: 16px 12px 14px;
+      }
+      .stat-value {
+        font-size: 22px;
+      }
+    }
+
     /* ── Page Section ── */
     .page-section {
       padding: 20px 16px 28px;
@@ -160,14 +212,10 @@
     .dashboard-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr auto;
       gap: 10px;
       margin: 0 2px 10px;
-    }
-    .dashboard-col {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-width: 0;
+      min-height: 32vh;
     }
     .dashboard-grid .control-card,
     .dashboard-grid .fan-card,
@@ -175,6 +223,14 @@
     .dashboard-grid .stats-row {
       margin: 0;
     }
+    /* Grid placement */
+    .dashboard-grid .temp-card  { grid-column: 1; grid-row: 1; }
+    .dashboard-grid .fan-card   { grid-column: 2; grid-row: 1; }
+    .dashboard-grid .hum-card   { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
+    .dashboard-grid .hum-card .metric-display { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .dashboard-grid .chart-card { grid-column: 2; grid-row: 2 / 4; display: flex; flex-direction: column; }
+    .dashboard-grid .chart-card .chart-wrap { flex: 1; min-height: 0; }
+    .dashboard-grid .stats-row  { grid-column: 1; grid-row: 3; }
 
     /* ── Control Cards ── */
     .control-card {
@@ -188,6 +244,8 @@
       width: 100%;
       text-align: left;
       box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
     }
     .card-header {
       display: flex;
@@ -227,6 +285,10 @@
     .metric-display {
       text-align: center;
       padding: 8px 0 4px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .metric-value {
       font-size: 58px;
@@ -273,6 +335,9 @@
       padding: 14px 10px 12px;
       text-align: center;
       box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .stat-value {
       font-size: 20px;
@@ -381,6 +446,8 @@
     .chart-wrap {
       position: relative;
       height: 200px;
+      flex: 1;
+      min-height: 0;
     }
 
     /* ── Fan Card ── */
@@ -403,18 +470,28 @@
       border-color: rgba(34,197,94,0.35);
       box-shadow: 0 4px 32px rgba(34,197,94,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
     }
-    .fan-top-row {
+    .fan-status-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
     }
-    .fan-left {
+    .fan-center {
+      flex: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 14px;
+      justify-content: center;
+      gap: 6px;
+    }
+    .fan-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-top: 4px;
     }
     .fan-icon-wrap {
-      width: 48px; height: 48px;
+      width: 72px; height: 72px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -430,7 +507,7 @@
       box-shadow: 0 0 18px rgba(34,197,94,0.4), 0 0 6px rgba(34,197,94,0.6);
     }
     .fan-icon-svg {
-      width: 22px; height: 22px;
+      width: 36px; height: 36px;
       stroke: var(--text-3);
       transition: stroke 0.4s, filter 0.4s;
     }
@@ -562,6 +639,11 @@
       border-top: 1px solid var(--border);
       letter-spacing: 1px;
       text-transform: uppercase;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
     }
   </style>
 </head>
@@ -576,6 +658,8 @@
     </div>
   </div>
 
+  <div class="app-shell">
+
   <!-- =====================================================
        LIVE READINGS
   ===================================================== -->
@@ -583,11 +667,8 @@
     <!-- 2-Column Dashboard -->
     <div class="dashboard-grid">
 
-      <!-- Left Column: Temp → Humidity → Stats -->
-      <div class="dashboard-col">
-
-        <!-- Temperature -->
-        <div class="control-card">
+        <!-- Temperature (Row 1, Col 1) -->
+        <div class="control-card temp-card">
           <div class="card-header">
             <div class="card-title"><span class="card-icon">🌡️</span>Temperature</div>
             <span class="badge badge-idle" id="tempBadge">—</span>
@@ -598,55 +679,20 @@
           </div>
         </div>
 
-        <!-- Humidity -->
-        <div class="control-card">
-          <div class="card-header">
-            <div class="card-title"><span class="card-icon">💧</span>Humidity</div>
-            <span class="badge badge-idle" id="humBadge">—</span>
-          </div>
-          <div class="metric-display">
-            <div class="metric-value hum-val" id="humVal">--<span class="metric-unit">%</span></div>
-            <div class="metric-label">Relative Humidity</div>
-          </div>
-        </div>
-
-        <!-- Min / Avg / Max -->
-        <div class="stats-row">
-          <div class="stat-card min">
-            <div class="stat-value" id="minTemp">--</div>
-            <div class="stat-label">Min °C</div>
-          </div>
-          <div class="stat-card avg">
-            <div class="stat-value" id="avgTemp">--</div>
-            <div class="stat-label">Avg °C</div>
-          </div>
-          <div class="stat-card max">
-            <div class="stat-value" id="maxTemp">--</div>
-            <div class="stat-label">Max °C</div>
-          </div>
-        </div>
-
-      </div><!-- end .dashboard-col left -->
-
-      <!-- Right Column: Fan → Live Chart -->
-      <div class="dashboard-col">
-
-        <!-- Fan -->
+        <!-- Fan (Row 1, Col 2) -->
         <div class="fan-card" id="fanCard">
-          <div class="fan-top-row">
-            <div class="fan-left">
-              <div class="fan-icon-wrap">
-                <svg class="fan-icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                  <line x1="12" y1="2" x2="12" y2="12"/>
-                </svg>
-              </div>
-              <div>
-                <div class="fan-info-title">Fan</div>
-                <div class="fan-info-sub" id="fanSub">Waiting for data…</div>
-              </div>
-            </div>
+          <div class="fan-status-row">
             <div class="fan-status-pill off" id="fanPill">OFF</div>
+          </div>
+          <div class="fan-center">
+            <div class="fan-icon-wrap">
+              <svg class="fan-icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+            </div>
+            <div class="fan-label">Fan</div>
+            <div class="fan-info-sub" id="fanSub">Waiting for data…</div>
           </div>
           <div class="fan-bottom-row">
             <span class="intensity-label">Intensity</span>
@@ -666,8 +712,20 @@
           </div>
         </div>
 
-        <!-- Live Chart -->
-        <div class="chart-card" style="flex:1;display:flex;flex-direction:column;">
+        <!-- Humidity (Row 2, Col 1) -->
+        <div class="control-card hum-card">
+          <div class="card-header">
+            <div class="card-title"><span class="card-icon">💧</span>Humidity</div>
+            <span class="badge badge-idle" id="humBadge">—</span>
+          </div>
+          <div class="metric-display">
+            <div class="metric-value hum-val" id="humVal">--<span class="metric-unit">%</span></div>
+            <div class="metric-label">Relative Humidity</div>
+          </div>
+        </div>
+
+        <!-- Live Chart (Row 2-3, Col 2) -->
+        <div class="chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Live Chart</div>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -678,12 +736,26 @@
               </div>
             </div>
           </div>
-          <div class="chart-wrap" style="flex:1;">
+          <div class="chart-wrap">
             <canvas id="sensorChart"></canvas>
           </div>
         </div>
 
-      </div><!-- end .dashboard-col right -->
+        <!-- Min / Avg / Max (Row 3, Col 1) -->
+        <div class="stats-row">
+          <div class="stat-card min">
+            <div class="stat-value" id="minTemp">--</div>
+            <div class="stat-label">Min °C</div>
+          </div>
+          <div class="stat-card avg">
+            <div class="stat-value" id="avgTemp">--</div>
+            <div class="stat-label">Avg °C</div>
+          </div>
+          <div class="stat-card max">
+            <div class="stat-value" id="maxTemp">--</div>
+            <div class="stat-label">Max °C</div>
+          </div>
+        </div>
 
     </div><!-- end .dashboard-grid -->
 
@@ -693,6 +765,8 @@
       <span id="lastUpdated">Waiting for data…</span>
     </div>
   </div>
+
+  </div><!-- end .app-shell -->
 
   <div class="app-footer">ESP32 WROOM &nbsp;&bull;&nbsp; DHT11 Sensor &nbsp;&bull;&nbsp; Polling every 2s</div>
 
