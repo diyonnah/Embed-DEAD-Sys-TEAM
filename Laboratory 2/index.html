@@ -7,6 +7,9 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Gemunu+Libre:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Gayathri:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bruno+Ace&display=swap');
 
     /* ── Design Tokens ── */
     :root {
@@ -49,50 +52,85 @@
 
     /* ── App Header ── */
     .app-header {
-      background: rgba(6,12,30,0.7);
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
+      background: rgb(15, 22, 31);
       border-bottom: 1px solid var(--border);
-      padding: calc(16px + env(safe-area-inset-top)) 24px 16px;
+      padding: calc(24px + env(safe-area-inset-top)) 0 24px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .app-header::before {
+      content: '';
+      position: absolute;
+      width: 317px;
+      height: 304px;
+      background: radial-gradient(circle, rgba(34, 197, 94, 0.25) 0%, transparent 70%);
+      top: -100px;
+      left: -50px;
+      pointer-events: none;
+    }
+    .app-header::after {
+      content: '';
+      position: absolute;
+      width: 754px;
+      height: 494px;
+      background: radial-gradient(circle, rgba(0, 183, 255, 0.2) 0%, transparent 70%);
+      top: -200px;
+      right: -300px;
+      pointer-events: none;
+    }
+    .header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+    .group-badge-top {
+      font-family: 'Bruno Ace', sans-serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: rgb(0, 183, 255);
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 12px rgba(0, 183, 255, 0.5), 0 0 30px rgba(0, 183, 255, 0.2);
+      margin-bottom: 2px;
     }
     .app-title {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--text-1);
-      letter-spacing: -0.3px;
+      font-family: 'Gemunu Libre', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: rgb(255, 255, 255);
+      margin: 0;
+      letter-spacing: -1px;
+      text-align: left;
     }
     .app-subtitle {
-      font-size: 11px;
-      color: var(--text-3);
-      letter-spacing: 0.3px;
-      margin-top: 3px;
+      font-family: 'Gayathri', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: rgb(255, 255, 255);
       line-height: 1.5;
-    }
-    .device-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 20px;
-      padding: 4px 11px;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-3);
-      margin-top: 10px;
-      letter-spacing: 0.4px;
-    }
-    .device-chip::before {
-      content: '';
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 6px var(--green);
-      animation: pulse 2.5s infinite;
+      opacity: 0.9;
+      white-space: nowrap;
+      margin-top: 4px;
+      text-align: left;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.4; }
+    }
+    @media (max-width: 768px) {
+      .app-header {
+        padding: calc(20px + env(safe-area-inset-top)) 0 20px 24px;
+      }
+      .app-title {
+        font-size: 24px;
+      }
+      .app-subtitle {
+        font-size: 12px;
+      }
+      .group-badge-top {
+        font-size: 16px;
+      }
     }
 
     /* ── Page Section ── */
@@ -118,16 +156,24 @@
       box-shadow: var(--card-shadow);
     }
 
-    /* ── Sensor Row ── */
-    .sensor-row {
-      display: flex;
+    /* ── 2-Column Dashboard ── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin: 0 2px;
+      margin: 0 2px 10px;
     }
-    .sensor-row .control-card {
-      flex: 1;
+    .dashboard-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       min-width: 0;
-      margin: 0 0 10px;
+    }
+    .dashboard-grid .control-card,
+    .dashboard-grid .fan-card,
+    .dashboard-grid .chart-card,
+    .dashboard-grid .stats-row {
+      margin: 0;
     }
 
     /* ── Control Cards ── */
@@ -138,7 +184,7 @@
       border: 1px solid var(--card-border);
       border-radius: var(--radius);
       padding: var(--pad);
-      margin: 0 0 10px;
+      margin: 0;
       width: 100%;
       text-align: left;
       box-shadow: var(--card-shadow);
@@ -296,7 +342,7 @@
       border: 1px solid var(--card-border);
       border-radius: var(--radius);
       padding: var(--pad);
-      margin: 0 0 10px;
+      margin: 0;
       width: 100%;
       box-shadow: var(--card-shadow);
     }
@@ -345,7 +391,7 @@
       border: 1px solid var(--card-border);
       border-radius: var(--radius);
       padding: var(--pad);
-      margin: 0 0 10px;
+      margin: 0;
       width: 100%;
       box-shadow: var(--card-shadow);
       display: flex;
@@ -523,113 +569,123 @@
 
   <!-- App Header -->
   <div class="app-header">
-    <div class="app-title">Laboratory 2</div>
-    <div class="app-subtitle">Real-time temperature &amp; humidity monitoring with DHT11 over Wi-Fi</div>
-    <div class="device-chip">ESP32 WROOM &nbsp;·&nbsp; DHT11 Sensor</div>
+    <div class="header-content">
+      <div class="group-badge-top">Group 2</div>
+      <div class="app-title">LABORATORY 2</div>
+      <div class="app-subtitle">Real-time temperature &amp; humidity monitoring with DHT11 over Wi-Fi</div>
+    </div>
   </div>
 
   <!-- =====================================================
        LIVE READINGS
   ===================================================== -->
   <div class="page-section">
-    <p class="section-label">Real-Time Sensor Data</p>
+    <!-- 2-Column Dashboard -->
+    <div class="dashboard-grid">
 
-    <!-- Temperature & Humidity -->
-    <div class="sensor-row">
+      <!-- Left Column: Temp → Humidity → Stats -->
+      <div class="dashboard-col">
 
-    <!-- Temperature -->
-    <div class="control-card">
-      <div class="card-header">
-        <div class="card-title"><span class="card-icon">🌡️</span>Temperature</div>
-        <span class="badge badge-idle" id="tempBadge">—</span>
-      </div>
-      <div class="metric-display">
-        <div class="metric-value temp-val" id="tempVal">--<span class="metric-unit">°C</span></div>
-        <div class="metric-label">Celsius</div>
-      </div>
-    </div>
-
-    <!-- Humidity -->
-    <div class="control-card">
-      <div class="card-header">
-        <div class="card-title"><span class="card-icon">💧</span>Humidity</div>
-        <span class="badge badge-idle" id="humBadge">—</span>
-      </div>
-      <div class="metric-display">
-        <div class="metric-value hum-val" id="humVal">--<span class="metric-unit">%</span></div>
-        <div class="metric-label">Relative Humidity</div>
-      </div>
-    </div>
-
-    </div><!-- end .sensor-row -->
-
-    <!-- Live Chart -->
-    <div class="chart-card">
-      <div class="chart-card-header">
-        <div class="chart-card-title">Live Chart</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="sim-badge" id="simBadge">Simulation</span>
-          <div class="chart-legend">
-            <span class="chart-legend-item"><span class="chart-legend-dot temp"></span>Temp °C</span>
-            <span class="chart-legend-item"><span class="chart-legend-dot hum"></span>Humidity %</span>
+        <!-- Temperature -->
+        <div class="control-card">
+          <div class="card-header">
+            <div class="card-title"><span class="card-icon">🌡️</span>Temperature</div>
+            <span class="badge badge-idle" id="tempBadge">—</span>
+          </div>
+          <div class="metric-display">
+            <div class="metric-value temp-val" id="tempVal">--<span class="metric-unit">°C</span></div>
+            <div class="metric-label">Celsius</div>
           </div>
         </div>
-      </div>
-      <div class="chart-wrap">
-        <canvas id="sensorChart"></canvas>
-      </div>
-    </div>
 
-    <!-- Fan Status -->
-    <div class="fan-card" id="fanCard">
-      <div class="fan-top-row">
-        <div class="fan-left">
-          <div class="fan-icon-wrap">
-            <svg class="fan-icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-              <line x1="12" y1="2" x2="12" y2="12"/>
-            </svg>
+        <!-- Humidity -->
+        <div class="control-card">
+          <div class="card-header">
+            <div class="card-title"><span class="card-icon">💧</span>Humidity</div>
+            <span class="badge badge-idle" id="humBadge">—</span>
           </div>
-          <div>
-            <div class="fan-info-title">Fan</div>
-            <div class="fan-info-sub" id="fanSub">Waiting for data…</div>
+          <div class="metric-display">
+            <div class="metric-value hum-val" id="humVal">--<span class="metric-unit">%</span></div>
+            <div class="metric-label">Relative Humidity</div>
           </div>
         </div>
-        <div class="fan-status-pill off" id="fanPill">OFF</div>
-      </div>
-      <div class="fan-bottom-row">
-        <span class="intensity-label">Intensity</span>
-        <div class="fan-intensity-ctrl">
-          <button class="intensity-btn" id="intMinus" onclick="changeFanIntensity(-1)">−</button>
-          <div class="intensity-display">
-            <div class="intensity-bars">
-              <div class="intensity-bar" style="height:6px"  data-level="1"></div>
-              <div class="intensity-bar" style="height:10px" data-level="2"></div>
-              <div class="intensity-bar" style="height:14px" data-level="3"></div>
-              <div class="intensity-bar" style="height:20px" data-level="4"></div>
+
+        <!-- Min / Avg / Max -->
+        <div class="stats-row">
+          <div class="stat-card min">
+            <div class="stat-value" id="minTemp">--</div>
+            <div class="stat-label">Min °C</div>
+          </div>
+          <div class="stat-card avg">
+            <div class="stat-value" id="avgTemp">--</div>
+            <div class="stat-label">Avg °C</div>
+          </div>
+          <div class="stat-card max">
+            <div class="stat-value" id="maxTemp">--</div>
+            <div class="stat-label">Max °C</div>
+          </div>
+        </div>
+
+      </div><!-- end .dashboard-col left -->
+
+      <!-- Right Column: Fan → Live Chart -->
+      <div class="dashboard-col">
+
+        <!-- Fan -->
+        <div class="fan-card" id="fanCard">
+          <div class="fan-top-row">
+            <div class="fan-left">
+              <div class="fan-icon-wrap">
+                <svg class="fan-icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                  <line x1="12" y1="2" x2="12" y2="12"/>
+                </svg>
+              </div>
+              <div>
+                <div class="fan-info-title">Fan</div>
+                <div class="fan-info-sub" id="fanSub">Waiting for data…</div>
+              </div>
             </div>
-            <span class="intensity-num" id="intensityNum">1</span>
+            <div class="fan-status-pill off" id="fanPill">OFF</div>
           </div>
-          <button class="intensity-btn" id="intPlus" onclick="changeFanIntensity(1)">+</button>
+          <div class="fan-bottom-row">
+            <span class="intensity-label">Intensity</span>
+            <div class="fan-intensity-ctrl">
+              <button class="intensity-btn" id="intMinus" onclick="changeFanIntensity(-1)">−</button>
+              <div class="intensity-display">
+                <div class="intensity-bars">
+                  <div class="intensity-bar" style="height:6px"  data-level="1"></div>
+                  <div class="intensity-bar" style="height:10px" data-level="2"></div>
+                  <div class="intensity-bar" style="height:14px" data-level="3"></div>
+                  <div class="intensity-bar" style="height:20px" data-level="4"></div>
+                </div>
+                <span class="intensity-num" id="intensityNum">1</span>
+              </div>
+              <button class="intensity-btn" id="intPlus" onclick="changeFanIntensity(1)">+</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Min / Avg / Max -->
-    <div class="stats-row">
-      <div class="stat-card min">
-        <div class="stat-value" id="minTemp">--</div>
-        <div class="stat-label">Min °C</div>
-      </div>
-      <div class="stat-card avg">
-        <div class="stat-value" id="avgTemp">--</div>
-        <div class="stat-label">Avg °C</div>
-      </div>
-      <div class="stat-card max">
-        <div class="stat-value" id="maxTemp">--</div>
-        <div class="stat-label">Max °C</div>
-      </div>
-    </div>
+        <!-- Live Chart -->
+        <div class="chart-card" style="flex:1;display:flex;flex-direction:column;">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Live Chart</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="sim-badge" id="simBadge">Simulation</span>
+              <div class="chart-legend">
+                <span class="chart-legend-item"><span class="chart-legend-dot temp"></span>Temp °C</span>
+                <span class="chart-legend-item"><span class="chart-legend-dot hum"></span>Humidity %</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="flex:1;">
+            <canvas id="sensorChart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- end .dashboard-col right -->
+
+    </div><!-- end .dashboard-grid -->
 
     <!-- Refresh indicator -->
     <div class="refresh-row">
@@ -758,12 +814,15 @@
     let fanIntensity = 1;
 
     function renderIntensityBars(level) {
+      const fanOn = document.getElementById('fanCard').classList.contains('fan-on');
       document.querySelectorAll('.intensity-bar').forEach(bar => {
         bar.classList.toggle('active', parseInt(bar.dataset.level) <= level);
       });
-      document.getElementById('intensityNum').textContent = level;
-      document.getElementById('intMinus').disabled = (level <= 1);
-      document.getElementById('intPlus').disabled  = (level >= 4);
+      const numEl = document.getElementById('intensityNum');
+      numEl.textContent = level;
+      numEl.style.opacity = fanOn ? '1' : '0.25';
+      document.getElementById('intMinus').disabled = (!fanOn || level <= 1);
+      document.getElementById('intPlus').disabled  = (!fanOn || level >= 4);
     }
 
     function changeFanIntensity(delta) {
