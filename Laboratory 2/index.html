@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DHT11 Temperature Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Gemunu+Libre:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Gayathri:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bruno+Ace&display=swap');
+
+    /* ── Design Tokens ── */
+    :root {
+      --bg:          #04080f;
+      --border:      rgba(255,255,255,0.08);
+      --text-1:      #f1f5f9;
+      --text-2:      #94a3b8;
+      --text-3:      #4b6080;
+      --accent:      #3b82f6;
+      --green:       #22c55e;
+      --green-dim:   rgba(34,197,94,0.13);
+      --red:         #ef4444;
+      --red-dim:     rgba(239,68,68,0.13);
+      --amber:       #f59e0b;
+      --amber-dim:   rgba(245,158,11,0.15);
+      --cyan:        #06b6d4;
+      --radius:      14px;
+      --glass-blur:  blur(20px) saturate(160%);
+      /* shared card surface */
+      --card-bg:     rgba(255,255,255,0.045);
+      --card-border: rgba(255,255,255,0.085);
+      --card-shadow: 0 2px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+      --pad:         18px;
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      text-align: center;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 120% 55% at 50% 0%, rgba(6,182,212,0.3) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 30% at 80% 0%, rgba(168,85,247,0.15) 0%, transparent 60%);
+      background-attachment: fixed;
+      color: var(--text-1);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Proportional Container ── */
+    .app-shell {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 40px; /* space for fixed footer */
+    }
+    .app-shell .page-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-shell .dashboard-grid {
+      flex: 1;
+    }
+
+    /* ── App Header ── */
+    .app-header {
+      background: rgb(15, 22, 31);
+      border-bottom: 1px solid var(--border);
+      padding: calc(24px + env(safe-area-inset-top)) 0 24px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .app-header::before {
+      content: '';
+      position: absolute;
+      width: 317px;
+      height: 304px;
+      background: radial-gradient(circle, rgba(34, 197, 94, 0.25) 0%, transparent 70%);
+      top: -100px;
+      left: -50px;
+      pointer-events: none;
+    }
+    .app-header::after {
+      content: '';
+      position: absolute;
+      width: 754px;
+      height: 494px;
+      background: radial-gradient(circle, rgba(0, 183, 255, 0.2) 0%, transparent 70%);
+      top: -200px;
+      right: -300px;
+      pointer-events: none;
+    }
+    .header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+    .group-badge-top {
+      font-family: 'Bruno Ace', sans-serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: rgb(0, 183, 255);
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 12px rgba(0, 183, 255, 0.5), 0 0 30px rgba(0, 183, 255, 0.2);
+      margin-bottom: 2px;
+    }
+    .app-title {
+      font-family: 'Gemunu Libre', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: rgb(255, 255, 255);
+      margin: 0;
+      letter-spacing: -1px;
+      text-align: left;
+    }
+    .app-subtitle {
+      font-family: 'Gayathri', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: rgb(255, 255, 255);
+      line-height: 1.5;
+      opacity: 0.9;
+      white-space: nowrap;
+      margin-top: 4px;
+      text-align: left;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @media (max-width: 768px) {
+      .app-header {
+        padding: calc(20px + env(safe-area-inset-top)) 0 20px 24px;
+      }
+      .app-title {
+        font-size: 24px;
+      }
+      .app-subtitle {
+        font-size: 12px;
+      }
+      .group-badge-top {
+        font-size: 16px;
+      }
+    }
+
+    /* ── Portrait orientation (height > width) ── */
+    @media (orientation: portrait) {
+      .app-shell {
+        max-width: 100%;
+      }
+      .page-section {
+        padding: 24px 20px 32px;
+      }
+      .dashboard-grid {
+        gap: 14px;
+      }
+      .dashboard-col {
+        gap: 14px;
+      }
+      .control-card {
+        padding: 22px;
+      }
+      .metric-value {
+        font-size: 52px;
+      }
+      .fan-card {
+        padding: 22px;
+      }
+      .stat-card {
+        padding: 16px 12px 14px;
+      }
+      .stat-value {
+        font-size: 22px;
+      }
+    }
+
+    /* ── Page Section ── */
+    .page-section {
+      padding: 20px 16px 28px;
+    }
+    .section-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Shared Card Base ── */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+    }
+
+    /* ── 2-Column Dashboard ── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr auto;
+      gap: 10px;
+      margin: 0 2px 10px;
+      min-height: 32vh;
+    }
+    .dashboard-grid .control-card,
+    .dashboard-grid .fan-card,
+    .dashboard-grid .chart-card,
+    .dashboard-grid .stats-row {
+      margin: 0;
+    }
+    /* Grid placement */
+    .dashboard-grid .temp-card  { grid-column: 1; grid-row: 1; }
+    .dashboard-grid .fan-card   { grid-column: 2; grid-row: 1; }
+    .dashboard-grid .hum-card   { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; }
+    .dashboard-grid .hum-card .metric-display { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .dashboard-grid .chart-card { grid-column: 2; grid-row: 2 / 4; display: flex; flex-direction: column; }
+    .dashboard-grid .chart-card .chart-wrap { flex: 1; min-height: 0; }
+    .dashboard-grid .stats-row  { grid-column: 1; grid-row: 3; }
+
+    /* ── Control Cards ── */
+    .control-card {
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin: 0;
+      width: 100%;
+      text-align: left;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .card-icon { font-size: 14px; line-height: 1; }
+
+    /* ── Status Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      transition: background 0.3s, color 0.3s;
+    }
+    .badge-normal  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+    .badge-warning { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(245,158,11,0.25); }
+    .badge-danger  { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge-idle    { background: rgba(75,96,128,0.08); color: var(--text-3); border: 1px solid rgba(75,96,128,0.15); }
+
+    /* ── Big Metric Display ── */
+    .metric-display {
+      text-align: center;
+      padding: 8px 0 4px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .metric-value {
+      font-size: 58px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -4px;
+      font-variant-numeric: tabular-nums;
+      transition: color 0.4s, text-shadow 0.4s;
+    }
+    .metric-unit {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-left: 1px;
+      opacity: 0.6;
+    }
+    .metric-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 5px;
+    }
+
+    /* Temperature card accent colours */
+    .temp-val         { color: var(--cyan);   text-shadow: 0 0 40px rgba(6,182,212,0.45); }
+    .temp-val.warm    { color: var(--amber);  text-shadow: 0 0 40px rgba(245,158,11,0.45); }
+    .temp-val.hot     { color: var(--red);    text-shadow: 0 0 40px rgba(239,68,68,0.45); }
+
+    .hum-val          { color: var(--accent); text-shadow: 0 0 40px rgba(59,130,246,0.45); }
+
+    /* ── Mini Stats Row ── */
+    .stats-row {
+      display: flex;
+      gap: 10px;
+      margin: 0 0 10px;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 14px 10px 12px;
+      text-align: center;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-top: 4px;
+    }
+    .stat-card.min .stat-value { color: var(--accent); }
+    .stat-card.max .stat-value { color: var(--red); }
+    .stat-card.avg .stat-value { color: var(--amber); }
+
+    /* ── Refresh indicator ── */
+    .refresh-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding-top: 10px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.5px;
+    }
+    .refresh-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    /* ── Simulation Badge ── */
+    .sim-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.35);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .sim-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: pulse 1.4s infinite;
+    }
+
+    /* ── Chart Card ── */
+    .chart-card {
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin: 0;
+      width: 100%;
+      box-shadow: var(--card-shadow);
+    }
+    .chart-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chart-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .chart-legend {
+      display: flex;
+      gap: 12px;
+    }
+    .chart-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.4px;
+    }
+    .chart-legend-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+    .chart-legend-dot.temp { background: #06b6d4; }
+    .chart-legend-dot.hum  { background: #3b82f6; }
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Fan Card ── */
+    .fan-card {
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin: 0;
+      width: 100%;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    .fan-card.fan-on {
+      border-color: rgba(34,197,94,0.35);
+      box-shadow: 0 4px 32px rgba(34,197,94,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .fan-status-row {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .fan-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .fan-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-top: 4px;
+    }
+    .fan-icon-wrap {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+      flex-shrink: 0;
+    }
+    .fan-card.fan-on .fan-icon-wrap {
+      background: rgba(34,197,94,0.12);
+      border-color: rgba(34,197,94,0.5);
+      box-shadow: 0 0 18px rgba(34,197,94,0.4), 0 0 6px rgba(34,197,94,0.6);
+    }
+    .fan-icon-svg {
+      width: 36px; height: 36px;
+      stroke: var(--text-3);
+      transition: stroke 0.4s, filter 0.4s;
+    }
+    .fan-card.fan-on .fan-icon-svg {
+      stroke: var(--green);
+      filter: drop-shadow(0 0 6px rgba(34,197,94,0.9));
+    }
+    .fan-info-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .fan-info-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 3px;
+      font-weight: 500;
+    }
+    .fan-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 24px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: background 0.4s, color 0.4s, border-color 0.4s, box-shadow 0.4s;
+    }
+    .fan-status-pill.on {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(34,197,94,0.35);
+      box-shadow: 0 0 16px rgba(34,197,94,0.15);
+    }
+    .fan-status-pill.off {
+      background: rgba(75,94,122,0.1);
+      color: var(--text-3);
+      border: 1px solid rgba(75,94,122,0.2);
+      box-shadow: none;
+    }
+    .fan-status-pill::before {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.85;
+    }
+    .fan-status-pill.on::before { animation: pulse 1.6s infinite; }
+    /* ── Fan Intensity ── */
+    .fan-bottom-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .intensity-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    .fan-intensity-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .intensity-btn {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      color: var(--text-2);
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+      font-family: inherit;
+    }
+    .intensity-btn:hover  { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
+    .intensity-btn:active { transform: scale(0.9); }
+    .intensity-btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+    .intensity-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .intensity-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 20px;
+    }
+    .intensity-bar {
+      width: 5px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.1);
+      transition: background 0.35s;
+    }
+    .intensity-bar.active       { background: var(--text-3); }
+    .fan-card.fan-on .intensity-bar.active { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+    .intensity-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-1);
+      font-variant-numeric: tabular-nums;
+      min-width: 16px;
+      text-align: center;
+    }
+
+    /* ── Footer ── */
+    .app-footer {
+      padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-3);
+      background: rgba(6,12,30,0.6);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-top: 1px solid var(--border);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <div class="header-content">
+      <div class="group-badge-top">Group 2</div>
+      <div class="app-title">LABORATORY 2</div>
+      <div class="app-subtitle">Real-time temperature &amp; humidity monitoring with DHT11 over Wi-Fi</div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+
+  <!-- =====================================================
+       LIVE READINGS
+  ===================================================== -->
+  <div class="page-section">
+    <!-- 2-Column Dashboard -->
+    <div class="dashboard-grid">
+
+        <!-- Temperature (Row 1, Col 1) -->
+        <div class="control-card temp-card">
+          <div class="card-header">
+            <div class="card-title"><span class="card-icon">🌡️</span>Temperature</div>
+            <span class="badge badge-idle" id="tempBadge">—</span>
+          </div>
+          <div class="metric-display">
+            <div class="metric-value temp-val" id="tempVal">--<span class="metric-unit">°C</span></div>
+            <div class="metric-label">Celsius</div>
+          </div>
+        </div>
+
+        <!-- Fan (Row 1, Col 2) -->
+        <div class="fan-card" id="fanCard">
+          <div class="fan-status-row">
+            <div class="fan-status-pill off" id="fanPill">OFF</div>
+          </div>
+          <div class="fan-center">
+            <div class="fan-icon-wrap">
+              <svg class="fan-icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+            </div>
+            <div class="fan-label">Fan</div>
+            <div class="fan-info-sub" id="fanSub">Waiting for data…</div>
+          </div>
+          <div class="fan-bottom-row">
+            <span class="intensity-label">Intensity</span>
+            <div class="fan-intensity-ctrl">
+              <button class="intensity-btn" id="intMinus" onclick="changeFanIntensity(-1)">−</button>
+              <div class="intensity-display">
+                <div class="intensity-bars">
+                  <div class="intensity-bar" style="height:6px"  data-level="1"></div>
+                  <div class="intensity-bar" style="height:10px" data-level="2"></div>
+                  <div class="intensity-bar" style="height:14px" data-level="3"></div>
+                  <div class="intensity-bar" style="height:20px" data-level="4"></div>
+                </div>
+                <span class="intensity-num" id="intensityNum">1</span>
+              </div>
+              <button class="intensity-btn" id="intPlus" onclick="changeFanIntensity(1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Humidity (Row 2, Col 1) -->
+        <div class="control-card hum-card">
+          <div class="card-header">
+            <div class="card-title"><span class="card-icon">💧</span>Humidity</div>
+            <span class="badge badge-idle" id="humBadge">—</span>
+          </div>
+          <div class="metric-display">
+            <div class="metric-value hum-val" id="humVal">--<span class="metric-unit">%</span></div>
+            <div class="metric-label">Relative Humidity</div>
+          </div>
+        </div>
+
+        <!-- Live Chart (Row 2-3, Col 2) -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-card-title">Live Chart</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="sim-badge" id="simBadge">Simulation</span>
+              <div class="chart-legend">
+                <span class="chart-legend-item"><span class="chart-legend-dot temp"></span>Temp °C</span>
+                <span class="chart-legend-item"><span class="chart-legend-dot hum"></span>Humidity %</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="sensorChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Min / Avg / Max (Row 3, Col 1) -->
+        <div class="stats-row">
+          <div class="stat-card min">
+            <div class="stat-value" id="minTemp">--</div>
+            <div class="stat-label">Min °C</div>
+          </div>
+          <div class="stat-card avg">
+            <div class="stat-value" id="avgTemp">--</div>
+            <div class="stat-label">Avg °C</div>
+          </div>
+          <div class="stat-card max">
+            <div class="stat-value" id="maxTemp">--</div>
+            <div class="stat-label">Max °C</div>
+          </div>
+        </div>
+
+    </div><!-- end .dashboard-grid -->
+
+    <!-- Refresh indicator -->
+    <div class="refresh-row">
+      <span class="refresh-dot"></span>
+      <span id="lastUpdated">Waiting for data…</span>
+    </div>
+  </div>
+
+  </div><!-- end .app-shell -->
+
+  <div class="app-footer">ESP32 WROOM &nbsp;&bull;&nbsp; DHT11 Sensor &nbsp;&bull;&nbsp; Polling every 2s</div>
+
+  <!-- =====================================================
+       JAVASCRIPT
+  ===================================================== -->
+  <script>
+    /* ── Session stats ── */
+    let readings   = [];
+    const MAX_LOG  = 50;   // keep last 50 entries in the log
+
+    /* ── Chart setup ── */
+    const CHART_MAX = 30;
+    const chartLabels  = [];
+    const chartTempData = [];
+    const chartHumData  = [];
+
+    const sensorChart = new Chart(document.getElementById('sensorChart'), {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Temperature (°C)',
+            data: chartTempData,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6,182,212,0.08)',
+            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'yTemp',
+          },
+          {
+            label: 'Humidity (%)',
+            data: chartHumData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderWidth: 2,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'yHum',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(10,20,45,0.92)',
+            titleColor: '#94a3b8',
+            bodyColor: '#f1f5f9',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            padding: 10,
+            titleFont: { size: 10, weight: '600' },
+            bodyFont:  { size: 12, weight: '700' },
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#4b6080', font: { size: 9 }, maxTicksLimit: 6 },
+            grid:  { color: 'rgba(255,255,255,0.04)' },
+            border:{ color: 'rgba(255,255,255,0.06)' },
+          },
+          yTemp: {
+            position: 'left',
+            ticks: { color: '#06b6d4', font: { size: 9 } },
+            grid:  { color: 'rgba(255,255,255,0.04)' },
+            border:{ color: 'rgba(255,255,255,0.06)' },
+            title: { display: true, text: '°C', color: '#06b6d4', font: { size: 9 } },
+          },
+          yHum: {
+            position: 'right',
+            ticks: { color: '#3b82f6', font: { size: 9 } },
+            grid:  { drawOnChartArea: false },
+            border:{ color: 'rgba(255,255,255,0.06)' },
+            title: { display: true, text: '%', color: '#3b82f6', font: { size: 9 } },
+          }
+        }
+      }
+    });
+
+    function pushChart(t, h) {
+      const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      chartLabels.push(label);
+      chartTempData.push(parseFloat(t));
+      chartHumData.push(parseFloat(h));
+      if (chartLabels.length > CHART_MAX) { chartLabels.shift(); chartTempData.shift(); chartHumData.shift(); }
+      sensorChart.update();
+    }
+
+    /* ── Classify temperature ── */
+    function tempClass(t) {
+      if (t >= 37) return 'hot';
+      if (t >= 30) return 'warm';
+      return '';
+    }
+
+    function tempBadgeState(t) {
+      if (t >= 37) return ['Hot',    'badge-danger'];
+      if (t >= 30) return ['Warm',   'badge-warning'];
+      return           ['Normal', 'badge-normal'];
+    }
+
+    function humBadgeState(h) {
+      if (h < 30 || h > 70) return ['Dry/Humid', 'badge-warning'];
+      return                        ['Optimal',   'badge-normal'];
+    }
+
+    /* ── Fan intensity state ── */
+    let fanIntensity = 1;
+
+    function renderIntensityBars(level) {
+      const fanOn = document.getElementById('fanCard').classList.contains('fan-on');
+      document.querySelectorAll('.intensity-bar').forEach(bar => {
+        bar.classList.toggle('active', parseInt(bar.dataset.level) <= level);
+      });
+      const numEl = document.getElementById('intensityNum');
+      numEl.textContent = level;
+      numEl.style.opacity = fanOn ? '1' : '0.25';
+      document.getElementById('intMinus').disabled = (!fanOn || level <= 1);
+      document.getElementById('intPlus').disabled  = (!fanOn || level >= 4);
+    }
+
+    function changeFanIntensity(delta) {
+      fanIntensity = Math.min(4, Math.max(1, fanIntensity + delta));
+      renderIntensityBars(fanIntensity);
+      const sub = document.getElementById('fanSub');
+      if (document.getElementById('fanCard').classList.contains('fan-on')) {
+        sub.textContent = 'Running — Speed ' + fanIntensity + ' / 4';
+      }
+      fetch('/fan?intensity=' + fanIntensity).catch(() => {});
+    }
+
+    /* ── Update fan indicator ── */
+    function updateFan(isOn) {
+      const card = document.getElementById('fanCard');
+      const pill = document.getElementById('fanPill');
+      const sub  = document.getElementById('fanSub');
+      if (isOn) {
+        card.classList.add('fan-on');
+        pill.className = 'fan-status-pill on';
+        pill.textContent = 'ON';
+        sub.textContent = 'Running — Speed ' + fanIntensity + ' / 4';
+      } else {
+        card.classList.remove('fan-on');
+        pill.className = 'fan-status-pill off';
+        pill.textContent = 'OFF';
+        sub.textContent = '';
+      }
+      renderIntensityBars(fanIntensity);
+    }
+
+    // Init bars on load
+    renderIntensityBars(fanIntensity);
+
+    /* ── Update Live tab ── */
+    function updateLive(data) {
+      const t = parseFloat(data.temperature).toFixed(1);
+      const h = parseFloat(data.humidity).toFixed(1);
+
+      /* Temperature */
+      const tEl = document.getElementById('tempVal');
+      tEl.className = 'metric-value temp-val ' + tempClass(parseFloat(t));
+      tEl.innerHTML = t + '<span class="metric-unit">°C</span>';
+
+      const [tText, tCls] = tempBadgeState(parseFloat(t));
+      const tBadge = document.getElementById('tempBadge');
+      tBadge.textContent = tText;
+      tBadge.className   = 'badge ' + tCls;
+
+      /* Humidity */
+      document.getElementById('humVal').innerHTML = h + '<span class="metric-unit">%</span>';
+      const [hText, hCls] = humBadgeState(parseFloat(h));
+      const hBadge = document.getElementById('humBadge');
+      hBadge.textContent = hText;
+      hBadge.className   = 'badge ' + hCls;
+
+      /* Session min / avg / max (temperature only) */
+      readings.push(parseFloat(t));
+      if (readings.length > MAX_LOG) readings.shift();
+
+      const mn  = Math.min(...readings).toFixed(1);
+      const mx  = Math.max(...readings).toFixed(1);
+      const avg = (readings.reduce((a,b) => a + b, 0) / readings.length).toFixed(1);
+
+      document.getElementById('minTemp').textContent = mn;
+      document.getElementById('avgTemp').textContent = avg;
+      document.getElementById('maxTemp').textContent = mx;
+
+      /* Last updated */
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent =
+        'Last updated ' + now.toLocaleTimeString();
+
+      /* Fan */
+      const fanOn = data.fan !== undefined ? !!data.fan : (parseFloat(t) >= 30);
+      updateFan(fanOn);
+
+      /* Push to chart */
+      pushChart(t, h);
+    }
+
+    /* ── Simulation fallback ── */
+    let simTemp = 27.0;
+    let simHum  = 58.0;
+    let simMode = false;
+
+    function simStep() {
+      // Random walk within realistic DHT11 ranges
+      simTemp = Math.min(45, Math.max(15, simTemp + (Math.random() - 0.48) * 0.6));
+      simHum  = Math.min(90, Math.max(20, simHum  + (Math.random() - 0.48) * 1.2));
+      return { temperature: simTemp.toFixed(1), humidity: simHum.toFixed(1) };
+    }
+
+    function setSimBadge(active) {
+      const el = document.getElementById('simBadge');
+      if (el) { el.style.display = active ? 'inline-flex' : 'none'; }
+    }
+
+    // Seed 10 points so the chart isn't empty on load
+    (function seed() {
+      for (let i = 0; i < 10; i++) updateLive(simStep());
+    })();
+    simMode = true;
+    setSimBadge(true);
+
+    /* ── Polling: fetch /status every 2 s ── */
+    setInterval(() => {
+      fetch('/status')
+        .then(res => res.json())
+        .then(data => {
+          if (simMode) { simMode = false; setSimBadge(false); }
+          updateLive(data);
+        })
+        .catch(() => {
+          simMode = true;
+          setSimBadge(true);
+          updateLive(simStep());
+        });
+    }, 2000);
+  </script>
+
+</body>
+</html>

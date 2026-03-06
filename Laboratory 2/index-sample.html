@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 LED Control</title>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    /* ── Design Tokens ── */
+    :root {
+      --bg:          #04080f;
+      --surface:     rgba(255,255,255,0.05);
+      --surface2:    rgba(255,255,255,0.08);
+      --border:      rgba(255,255,255,0.08);
+      --border-soft: rgba(255,255,255,0.13);
+      --text-1:      #f1f5f9;
+      --text-2:      #94a3b8;
+      --text-3:      #4b6080;
+      --accent:      #3b82f6;
+      --accent-dim:  rgba(59,130,246,0.22);
+      --green:       #22c55e;
+      --green-dim:   rgba(34,197,94,0.14);
+      --red:         #ef4444;
+      --red-dim:     rgba(239,68,68,0.14);
+      --amber:       #f59e0b;
+      --amber-dim:   rgba(245,158,11,0.18);
+      --radius:      16px;
+      --glass-blur:  blur(20px) saturate(160%);
+      --card-shadow: 0 4px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      text-align: center;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 120% 55% at 50% 0%, rgba(37,99,235,0.45) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 30% at 80% 0%, rgba(99,102,241,0.2) 0%, transparent 60%);
+      background-attachment: fixed;
+      color: var(--text-1);
+      min-height: 100vh;
+    }
+
+    /* ── App Header ── */
+    .app-header {
+      background: rgba(10,20,45,0.55);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--border);
+      padding: 20px max(20px, env(safe-area-inset-right)) 18px max(20px, env(safe-area-inset-left));
+      padding-top: calc(18px + env(safe-area-inset-top));
+      position: relative;
+    }
+
+    .app-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text-1);
+      letter-spacing: -0.4px;
+    }
+    .app-subtitle {
+      font-size: 11px;
+      color: rgba(148,163,184,0.8);
+      letter-spacing: 0.6px;
+      margin-top: 4px;
+      max-width: 280px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+    .device-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-top: 12px;
+      letter-spacing: 0.3px;
+    }
+    .device-chip::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ── Tab Bar ── */
+    .tab {
+      display: flex;
+      background: rgba(8,14,28,0.5);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--border);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+    .tab button {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      outline: none;
+      cursor: pointer;
+      padding: 16px 8px 14px;
+      min-height: 52px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      color: var(--text-3);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      transition: color 0.2s, background 0.2s;
+    }
+    .tab button:hover { color: var(--text-2); background: rgba(255,255,255,0.02); }
+    .tab button.active {
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      background: transparent;
+    }
+
+    /* ── Tab Content ── */
+    .tabcontent {
+      display: none;
+      padding: 24px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+      background: transparent;
+      min-height: 420px;
+    }
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      padding-top: 6px;
+    }
+
+    /* ── Control Cards ── */
+    .control-card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: var(--radius);
+      padding: 20px 20px 18px;
+      margin: 12px auto;
+      width: 100%;
+      max-width: 480px;
+      text-align: left;
+      box-shadow: var(--card-shadow);
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    }
+    .control-card:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.09);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+
+    /* ── LED Indicator Dots ── */
+    .led-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.4s ease, box-shadow 0.4s ease;
+    }
+    /* OFF state — dim, no glow */
+    .led-dot.blue  { background: #0f2540; box-shadow: none; }
+    .led-dot.red   { background: #3b0f0f; box-shadow: none; }
+    .led-dot.amber { background: #2e1d04; box-shadow: none; }
+    /* ON state — bright with halo glow */
+    .led-dot.blue.lit  { background: #60a5fa; box-shadow: 0 0 6px 1px rgba(96,165,250,0.9),  0 0 16px rgba(96,165,250,0.45); }
+    .led-dot.red.lit   { background: #f87171; box-shadow: 0 0 6px 1px rgba(248,113,113,0.9), 0 0 16px rgba(248,113,113,0.45); }
+    .led-dot.amber.lit { background: #fbbf24; box-shadow: 0 0 6px 1px rgba(251,191,36,0.9),  0 0 16px rgba(251,191,36,0.45); }
+
+    /* ── Status Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      transition: background 0.3s, color 0.3s, border-color 0.3s;
+    }
+    .badge-on {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+    .badge-off {
+      background: rgba(75,94,122,0.1);
+      color: var(--text-3);
+      border: 1px solid rgba(75,94,122,0.2);
+    }
+
+    /* ── S1 Button Row ── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      flex: 1;
+      padding: 14px 10px;
+      min-height: 52px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: transform 0.12s, filter 0.12s, box-shadow 0.12s;
+    }
+    .btn-on {
+      background: linear-gradient(145deg, #1d4ed8, #3b82f6);
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(59,130,246,0.32);
+    }
+    .btn-on:hover  { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 5px 18px rgba(59,130,246,0.48); }
+    .btn-off {
+      background: linear-gradient(145deg, #991b1b, #ef4444);
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(239,68,68,0.28);
+    }
+    .btn-off:hover { filter: brightness(1.1);  transform: translateY(-1px); box-shadow: 0 5px 18px rgba(239,68,68,0.42); }
+    .btn:active    { transform: translateY(0); filter: brightness(0.9); }
+
+    /* ── Toggle Switch ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 52px;
+      padding: 4px 0;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 56px;
+      height: 32px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 32px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .slider::before {
+      position: absolute;
+      content: '';
+      height: 22px; width: 22px;
+      left: 4px; bottom: 4px;
+      background: var(--text-3);
+      border-radius: 50%;
+      transition: transform 0.3s, background 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    input:checked + .slider {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    input:checked + .slider::before {
+      transform: translateX(24px);
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(59,130,246,0.5);
+    }
+
+    /* ── S3 PWM ── */
+    .pwm-display {
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px 12px 14px;
+      margin: 4px 0 10px;
+      text-align: center;
+    }
+    .brightness-value {
+      font-size: 56px;
+      font-weight: 800;
+      color: var(--amber);
+      line-height: 1;
+      letter-spacing: -3px;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 30px rgba(245,158,11,0.4);
+    }
+    .brightness-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-top: 5px;
+    }
+    .knob-container {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 6px;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    input[type=range].knob-range {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 4px;
+      background: var(--border);
+      outline: none;
+      margin: 16px 0 0;
+      cursor: pointer;
+      touch-action: none;
+    }
+    input[type=range].knob-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--amber);
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(245,158,11,0.55), 0 2px 4px rgba(0,0,0,0.4);
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    input[type=range].knob-range::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 22px rgba(245,158,11,0.8), 0 2px 6px rgba(0,0,0,0.4);
+      transform: scale(1.1);
+    }
+
+    /* ── Footer ── */
+    .app-footer {
+      padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-3);
+      background: rgba(8,14,28,0.4);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <div class="app-title">Laboratory 1</div>
+    <div class="app-subtitle">Controlling an LED using NodeMCU over Wi-Fi</div>
+    <div class="device-chip">ESP32 WROOM &nbsp;·&nbsp; WebServer</div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab">
+    <button class="tablinks" onclick="openTab('Tab1')" id="btnTab1">Basic</button>
+    <button class="tablinks" onclick="openTab('Tab2')" id="btnTab2">Toggle</button>
+    <button class="tablinks" onclick="openTab('Tab3')" id="btnTab3">PWM</button>
+  </div>
+
+  <!-- =====================================================
+       TAB 1: S1 CONTENT (Basic Buttons)
+  ===================================================== -->
+  <div id="Tab1" class="tabcontent">
+    <p class="section-label">Basic Control</p>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot blue" data-led="1"></span>LED 1 &mdash; Blue</div>
+        <span class="badge badge-off" id="status1_tab1">OFF</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-on" onclick="controlLED(1, 'on')">Turn ON</button>
+        <button class="btn btn-off" onclick="controlLED(1, 'off')">Turn OFF</button>
+      </div>
+    </div>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot red" data-led="2"></span>LED 2 &mdash; Red</div>
+        <span class="badge badge-off" id="status2_tab1">OFF</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-on" onclick="controlLED(2, 'on')">Turn ON</button>
+        <button class="btn btn-off" onclick="controlLED(2, 'off')">Turn OFF</button>
+      </div>
+    </div>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot amber" data-led="3"></span>LED 3 &mdash; Yellow</div>
+        <span class="badge badge-off" id="status3_tab1">OFF</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-on" onclick="controlLED(3, 'on')">Turn ON</button>
+        <button class="btn btn-off" onclick="controlLED(3, 'off')">Turn OFF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       TAB 2: S2 CONTENT (Toggle Switches)
+  ===================================================== -->
+  <div id="Tab2" class="tabcontent">
+    <p class="section-label">Toggle Control</p>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot blue" data-led="1"></span>LED 1 &mdash; Blue</div>
+      </div>
+      <div class="toggle-row">
+        <span class="badge badge-off" id="status1_tab2">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle1" onchange="toggleLED(1)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot red" data-led="2"></span>LED 2 &mdash; Red</div>
+      </div>
+      <div class="toggle-row">
+        <span class="badge badge-off" id="status2_tab2">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle2" onchange="toggleLED(2)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot amber" data-led="3"></span>LED 3 &mdash; Yellow</div>
+      </div>
+      <div class="toggle-row">
+        <span class="badge badge-off" id="status3_tab2">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle3" onchange="toggleLED(3)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       TAB 3: S3 CONTENT (PWM Slider)
+  ===================================================== -->
+  <div id="Tab3" class="tabcontent">
+    <p class="section-label">PWM Control</p>
+    <div class="control-card">
+      <div class="card-header">
+        <div class="card-title"><span class="led-dot amber" data-led="3"></span>LED 3 &mdash; Yellow</div>
+        <span class="badge badge-off" id="status3_tab3">OFF</span>
+      </div>
+      <div class="pwm-display">
+        <div class="brightness-value" id="brightVal">0</div>
+        <div class="brightness-label">Brightness (0 &ndash; 255)</div>
+      </div>
+      <div class="knob-container">
+        <input type="range" class="knob-range" id="brightSlider" min="0" max="255" value="0"
+               oninput="updateKnob(this.value)" onchange="sendBrightness(this.value)">
+        <div class="slider-labels"><span>Dim</span><span>Bright</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-footer">ESP32 WROOM &nbsp;&bull;&nbsp; GPIO Control &nbsp;&bull;&nbsp; Polling every 2s</div>
+
+  <!-- =====================================================
+       JAVASCRIPT (AJAX & UI Sync)
+  ===================================================== -->
+  <script>
+    function openTab(tabName) {
+      var i, tabcontent, tablinks;
+      tabcontent = document.getElementsByClassName('tabcontent');
+      for (i = 0; i < tabcontent.length; i++) { tabcontent[i].style.display = 'none'; }
+      tablinks = document.getElementsByClassName('tablinks');
+      for (i = 0; i < tablinks.length; i++) { tablinks[i].className = tablinks[i].className.replace(' active', ''); }
+      document.getElementById(tabName).style.display = 'block';
+      document.getElementById('btn' + tabName).className += ' active';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'Tab1';
+    openTab(activeTab);
+
+    // Sets badge text and colour class
+    function setBadge(id, state) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerText = state ? 'ON' : 'OFF';
+      el.className = 'badge ' + (state ? 'badge-on' : 'badge-off');
+    }
+
+    // Toggle lit class on every dot that belongs to this LED number
+    function setDots(led, state) {
+      document.querySelectorAll(`[data-led="${led}"]`).forEach(dot => {
+        dot.classList.toggle('lit', state);
+      });
+    }
+
+    // Function to update UI elements across all tabs
+    function updateUI(led, state, brightness = null) {
+      setDots(led, state);
+      if (led === 1) {
+        setBadge('status1_tab1', state);
+        setBadge('status1_tab2', state);
+        document.getElementById('toggle1').checked = state;
+      }
+      if (led === 2) {
+        setBadge('status2_tab1', state);
+        setBadge('status2_tab2', state);
+        document.getElementById('toggle2').checked = state;
+      }
+      if (led === 3) {
+        setBadge('status3_tab1', state);
+        setBadge('status3_tab2', state);
+        setBadge('status3_tab3', state);
+        document.getElementById('toggle3').checked = state;
+        const bright = brightness !== null ? brightness : (state ? 255 : 0);
+        document.getElementById('brightSlider').value = bright;
+        updateKnob(bright);
+      }
+    }
+
+    // AJAX calls for Basic Buttons (S1)
+    function controlLED(led, action) {
+      fetch('/led' + led + action)
+        .then(response => response.text())
+        .then(state => updateUI(led, state === '1'));
+    }
+
+    // AJAX calls for Toggle Switches (S2)
+    function toggleLED(led) {
+      fetch('/led' + led + 'toggle')
+        .then(response => response.text())
+        .then(state => updateUI(led, state === '1'));
+    }
+
+    // AJAX calls for PWM Slider (S3)
+    function updateKnob(val) {
+      document.getElementById('brightVal').innerText = val;
+      const pct = Math.round(val / 255 * 100);
+      document.getElementById('brightSlider').style.background =
+        `linear-gradient(to right, var(--amber) ${pct}%, var(--border) ${pct}%)`;
+    }
+    function sendBrightness(val) {
+      fetch('/led3brightness?value=' + val)
+        .then(() => updateUI(3, val > 0, val));
+    }
+
+    // Polling to keep multiple devices in sync (checks every 2 seconds)
+    setInterval(() => {
+      fetch('/status').then(res => res.json()).then(data => {
+        updateUI(1, data.led1);
+        updateUI(2, data.led2);
+        updateUI(3, data.led3, data.bright3);
+      });
+    }, 2000);
+  </script>
+
+</body>
+</html>
