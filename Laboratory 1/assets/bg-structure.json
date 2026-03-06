@@ -1,0 +1,443 @@
+{
+  "metadata": {
+    "exportedAt": "2026-02-27T04:23:05.367Z",
+    "componentName": "BG",
+    "totalElements": 28,
+    "nestingDepth": 3,
+    "plugin": "Figma to JSON Exporter"
+  },
+  "designTokens": {
+    "colors": {
+      "color-rgb(0, 0, 0)": "rgb(0, 0, 0)",
+      "color-rgb(217, 217, 217)": "rgb(217, 217, 217)",
+      "color-rgb(10, 0, 124)": "rgb(10, 0, 124)",
+      "color-rgb(0, 200, 255)": "rgb(0, 200, 255)",
+      "color-rgb(255, 255, 255)": "rgb(255, 255, 255)",
+      "color-rgb(253, 0, 0)": "rgb(253, 0, 0)"
+    },
+    "fonts": {
+      "arial": {
+        "family": "Arial",
+        "sizes": {
+          "size-38": "38px"
+        },
+        "weights": {
+          "weight-400": "400"
+        }
+      },
+      "protipo": {
+        "family": "Protipo",
+        "sizes": {
+          "size-122": "122px",
+          "size-319": "319px"
+        },
+        "weights": {
+          "weight-700": "700"
+        }
+      }
+    },
+    "spacing": {},
+    "effects": {
+      "shadow-4-4": {
+        "x": 0,
+        "y": 4,
+        "blur": 4,
+        "color": "rgba(0, 0, 0, 0.25)"
+      },
+      "shadow-94-0": {
+        "x": 0,
+        "y": 0,
+        "blur": 94,
+        "color": "rgba(255, 255, 255, 0.25)"
+      }
+    }
+  },
+  "structure": {
+    "name": "bg",
+    "type": "FRAME",
+    "size": {
+      "w": 1440,
+      "h": 2131
+    },
+    "styles": {
+      "bg": "rgb(0, 0, 0)",
+      "layout": {
+        "direction": "row",
+        "gap": 0,
+        "align": {
+          "main": "start",
+          "cross": "start"
+        }
+      }
+    },
+    "children": [
+      {
+        "name": "mask-group",
+        "type": "GROUP",
+        "size": {
+          "w": 1440,
+          "h": 1440
+        },
+        "styles": {
+          "shadow": {
+            "x": 0,
+            "y": 4,
+            "blur": 4,
+            "color": "rgba(0, 0, 0, 0.25)"
+          }
+        },
+        "children": [
+          {
+            "name": "ellipse-1",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 1440,
+              "h": 1440
+            },
+            "styles": {
+              "bg": "rgb(217, 217, 217)",
+              "shadow": {
+                "x": 0,
+                "y": 0,
+                "blur": 94,
+                "color": "rgba(255, 255, 255, 0.25)"
+              }
+            }
+          },
+          {
+            "name": "vector-1",
+            "type": "VECTOR",
+            "size": {
+              "w": 2294,
+              "h": 1161
+            },
+            "styles": {
+              "bg": "rgb(10, 0, 124)"
+            }
+          },
+          {
+            "name": "vector-2",
+            "type": "VECTOR",
+            "size": {
+              "w": 1896,
+              "h": 816
+            },
+            "styles": {
+              "bg": "rgb(0, 200, 255)"
+            }
+          },
+          {
+            "name": "vector-3",
+            "type": "VECTOR",
+            "size": {
+              "w": 1956,
+              "h": 574
+            },
+            "styles": {
+              "bg": "rgb(255, 255, 255)"
+            }
+          }
+        ]
+      },
+      {
+        "name": "mask-group",
+        "type": "GROUP",
+        "size": {
+          "w": 1440,
+          "h": 1440
+        },
+        "styles": {
+          "shadow": {
+            "x": 0,
+            "y": 4,
+            "blur": 4,
+            "color": "rgba(0, 0, 0, 0.25)"
+          }
+        },
+        "children": [
+          {
+            "name": "ellipse-1",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 1440,
+              "h": 1440
+            },
+            "styles": {
+              "bg": "rgb(217, 217, 217)",
+              "shadow": {
+                "x": 0,
+                "y": 0,
+                "blur": 94,
+                "color": "rgba(255, 255, 255, 0.25)"
+              }
+            }
+          },
+          {
+            "name": "vector-1",
+            "type": "VECTOR",
+            "size": {
+              "w": 2294,
+              "h": 1161
+            },
+            "styles": {
+              "bg": "rgb(10, 0, 124)"
+            }
+          },
+          {
+            "name": "vector-2",
+            "type": "VECTOR",
+            "size": {
+              "w": 1896,
+              "h": 816
+            },
+            "styles": {
+              "bg": "rgb(0, 200, 255)"
+            }
+          },
+          {
+            "name": "vector-3",
+            "type": "VECTOR",
+            "size": {
+              "w": 1956,
+              "h": 574
+            },
+            "styles": {
+              "bg": "rgb(255, 255, 255)"
+            }
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "GROUP",
+        "size": {
+          "w": 1114,
+          "h": 403
+        },
+        "children": [
+          {
+            "name": "controlling-an-led-using-nodemcu-over-wi-fi",
+            "type": "TEXT",
+            "size": {
+              "w": 573,
+              "h": 88
+            },
+            "content": "Controlling an LED using NodeMCU over Wi-Fi",
+            "styles": {
+              "text": {
+                "family": "Arial",
+                "size": 38,
+                "weight": "400",
+                "align": "center"
+              }
+            }
+          },
+          {
+            "name": "laboratory",
+            "type": "TEXT",
+            "size": {
+              "w": 1045,
+              "h": 158
+            },
+            "content": "LABORATORY",
+            "styles": {
+              "bg": "rgb(255, 255, 255)",
+              "text": {
+                "family": "Protipo",
+                "size": 122,
+                "weight": "700",
+                "align": "center"
+              }
+            }
+          },
+          {
+            "name": "activity",
+            "type": "TEXT",
+            "size": {
+              "w": 556,
+              "h": 158
+            },
+            "content": "ACTIVITY",
+            "styles": {
+              "bg": "rgb(255, 255, 255)",
+              "text": {
+                "family": "Protipo",
+                "size": 122,
+                "weight": "700",
+                "align": "center"
+              }
+            }
+          },
+          {
+            "name": "1",
+            "type": "TEXT",
+            "size": {
+              "w": 295,
+              "h": 284
+            },
+            "content": "1",
+            "styles": {
+              "bg": "rgb(255, 255, 255)",
+              "text": {
+                "family": "Protipo",
+                "size": 319,
+                "weight": "700",
+                "align": "center"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "star-icon-big",
+        "type": "BOOLEAN_OPERATION",
+        "size": {
+          "w": 363,
+          "h": 361
+        },
+        "styles": {
+          "border": {
+            "width": 13,
+            "color": "rgb(255, 255, 255)"
+          }
+        },
+        "children": [
+          {
+            "name": "rectangle-1",
+            "type": "RECTANGLE",
+            "size": {
+              "w": 470,
+              "h": 470
+            },
+            "styles": {
+              "bg": "rgb(217, 217, 217)"
+            }
+          },
+          {
+            "name": "ellipse-2",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 629,
+              "h": 629
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-3",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 629,
+              "h": 629
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-4",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 629,
+              "h": 629
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-5",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 629,
+              "h": 629
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          }
+        ]
+      },
+      {
+        "name": "star-icon-small",
+        "type": "BOOLEAN_OPERATION",
+        "size": {
+          "w": 221,
+          "h": 219
+        },
+        "styles": {
+          "border": {
+            "width": 11,
+            "color": "rgb(255, 255, 255)"
+          }
+        },
+        "children": [
+          {
+            "name": "rectangle-1",
+            "type": "RECTANGLE",
+            "size": {
+              "w": 286,
+              "h": 286
+            },
+            "styles": {
+              "bg": "rgb(217, 217, 217)"
+            }
+          },
+          {
+            "name": "ellipse-2",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 382,
+              "h": 382
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-3",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 382,
+              "h": 382
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-4",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 382,
+              "h": 382
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          },
+          {
+            "name": "ellipse-5",
+            "type": "ELLIPSE",
+            "size": {
+              "w": 382,
+              "h": 382
+            },
+            "styles": {
+              "bg": "rgb(253, 0, 0)"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "components": 0,
+    "instances": 0,
+    "frames": 1,
+    "texts": 4,
+    "hasAutoLayout": true,
+    "hasEffects": true
+  }
+}
