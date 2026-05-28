@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TapIn - Attendance Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -365,6 +366,32 @@
             padding: 8px 12px;
             font-size: 12px;
         }
+
+        .note {
+            background: #eff6ff;
+            border-left: 4px solid #667eea;
+            color: #1f2937;
+            padding: 12px 14px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .section-toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto auto auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .session-log {
+            margin-top: 12px;
+            overflow-x: auto;
+        }
+
+        .session-log table {
+            margin-top: 8px;
+        }
         
         @media (max-width: 768px) {
             .sidebar {
@@ -391,6 +418,10 @@
             .grid-2 {
                 grid-template-columns: 1fr;
             }
+
+            .section-toolbar {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -400,6 +431,7 @@
         <ul class="nav-menu">
             <li><button class="nav-btn active" data-view="dashboard">📊 Dashboard</button></li>
             <li><button class="nav-btn" data-view="sessions">📅 Sessions</button></li>
+            <li><button class="nav-btn" data-view="students">👥 Students</button></li>
             <li><button class="nav-btn" data-view="history">📋 History</button></li>
         </ul>
     </div>
@@ -472,21 +504,47 @@
                     <p>No sessions found. Create one to get started.</p>
                 </div>
             </div>
-            
-            <div class="card">
-                <h3>Add Students to Active Session</h3>
-                <div class="button-group">
+        </div>
+
+        <!-- STUDENTS VIEW -->
+        <div id="students" class="view">
+            <div class="header">
+                <h2>Students</h2>
+                <div class="button-group" style="margin-bottom: 0;">
                     <button class="btn-primary" onclick="openAddStudentModal()">+ Add Student Manually</button>
-                    <button class="btn-primary" onclick="document.getElementById('csvUpload').click()">📤 Import CSV</button>
-                    <input type="file" id="csvUpload" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+                    <button class="btn-primary" onclick="document.getElementById('xlsxUpload').click()">📤 Import Excel</button>
+                    <input type="file" id="xlsxUpload" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(event)">
                 </div>
+            </div>
+
+            <div class="card">
+                <h3>Sections</h3>
+                <div class="section-toolbar">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Current Section</label>
+                        <select id="sectionSelect" onchange="selectSection(this.value)">
+                            <option value="">No sections yet</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Add Section</label>
+                        <input type="text" id="newSectionName" placeholder="e.g., CMPE 409 - Section 1">
+                    </div>
+                    <button class="btn-success" onclick="addSection()">Add Section</button>
+                    <button class="btn-danger" onclick="deleteSelectedSection()">Delete Section</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Students in Section</h3>
+                <p class="note">Excel file must contain the following fields: <strong>Name</strong>, <strong>Student #</strong>, <strong>Card ID</strong>, and <strong>Seat #</strong>.</p>
                 <table>
                     <thead>
                         <tr>
                             <th>Name</th>
                             <th>Student #</th>
                             <th>Seat #</th>
-                            <th>UID</th>
+                            <th>Card ID</th>
                             <th>BLE ID</th>
                             <th>Action</th>
                         </tr>
@@ -508,35 +566,13 @@
             
             <div class="card">
                 <h3>Past Sessions</h3>
-                <div id="pastSessionsList">
-                    <p>No past sessions found.</p>
-                </div>
-            </div>
-            
-            <div class="card">
-                <h3>Attendance Logs</h3>
                 <div class="button-group">
                     <button class="btn-secondary" onclick="exportAttendanceCSV()">📥 Export as CSV</button>
                     <button class="btn-secondary" onclick="exportAttendanceExcel()">📥 Export as Excel</button>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Session ID</th>
-                            <th>Student Name</th>
-                            <th>Seat</th>
-                            <th>Card ID</th>
-                            <th>BLE ID</th>
-                            <th>Timestamp</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                        <tr>
-                            <td colspan="7" style="text-align: center; color: #999;">No records found</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div id="pastSessionsList">
+                    <p>No past sessions found.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -552,6 +588,12 @@
                 <div class="form-group">
                     <label>Session Name</label>
                     <input type="text" id="sessionName" required placeholder="e.g., CMPE 409 - May 28">
+                </div>
+                <div class="form-group">
+                    <label>Section</label>
+                    <select id="sessionSection" required>
+                        <option value="">Create a section in Students first</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Session Type</label>
@@ -631,6 +673,10 @@
         let allStudents = [];
         let allAttendance = [];
         let allSessions = [];
+        let sections = loadStoredSections();
+        let selectedSectionId = localStorage.getItem('tapin_selected_section') || '';
+        let sessionSectionMap = loadStorageObject('tapin_session_sections', {});
+        let activeSessionId = localStorage.getItem('tapin_active_session') || '';
         
         // ===== SUPABASE FETCH FUNCTIONS =====
         async function supabaseQuery(table, filters = {}) {
@@ -699,14 +745,122 @@
                 return false;
             }
         }
+
+        async function supabaseUpdate(table, id, data) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Prefer": "return=minimal"
+                    },
+                    body: JSON.stringify(data)
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('Update error:', error);
+                return false;
+            }
+        }
+
+        function loadStorageObject(key, fallback) {
+            try {
+                return JSON.parse(localStorage.getItem(key)) || fallback;
+            } catch (error) {
+                return fallback;
+            }
+        }
+
+        function loadStoredSections() {
+            const storedSections = loadStorageObject('tapin_sections', []);
+            return storedSections.map(section => ({
+                ...section,
+                students: Array.isArray(section.students) ? section.students : []
+            }));
+        }
+
+        function saveSections() {
+            localStorage.setItem('tapin_sections', JSON.stringify(sections));
+        }
+
+        function saveSessionSectionMap() {
+            localStorage.setItem('tapin_session_sections', JSON.stringify(sessionSectionMap));
+        }
+
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function normalizeHeader(value) {
+            return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        function getSectionById(id) {
+            return sections.find(section => section.id === id);
+        }
+
+        function getSelectedSection() {
+            ensureSelectedSection();
+            return getSectionById(selectedSectionId);
+        }
+
+        function ensureSelectedSection() {
+            if (sections.length === 0) {
+                selectedSectionId = '';
+                localStorage.removeItem('tapin_selected_section');
+                return;
+            }
+
+            if (!getSectionById(selectedSectionId)) {
+                selectedSectionId = sections[0].id;
+                localStorage.setItem('tapin_selected_section', selectedSectionId);
+            }
+        }
+
+        function renderSectionOptions() {
+            ensureSelectedSection();
+            const sectionSelect = document.getElementById('sectionSelect');
+            const sessionSection = document.getElementById('sessionSection');
+            const options = sections.map(section => (
+                `<option value="${section.id}" ${section.id === selectedSectionId ? 'selected' : ''}>${escapeHTML(section.name)}</option>`
+            )).join('');
+
+            if (sectionSelect) {
+                sectionSelect.innerHTML = options || '<option value="">No sections yet</option>';
+                sectionSelect.value = selectedSectionId;
+            }
+
+            if (sessionSection) {
+                sessionSection.innerHTML = options || '<option value="">Create a section in Students first</option>';
+                sessionSection.value = selectedSectionId;
+            }
+        }
+
+        function renderStudentsView() {
+            renderSectionOptions();
+            updateStudentsTable();
+        }
+
+        function setActiveNav(viewName) {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-view') === viewName);
+            });
+        }
         
         // Navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const viewName = this.getAttribute('data-view');
                 showView(viewName);
-                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+                setActiveNav(viewName);
             });
         });
         
@@ -718,6 +872,9 @@
                 loadHistory();
             } else if (viewName === 'sessions') {
                 loadSessions();
+                renderSectionOptions();
+            } else if (viewName === 'students') {
+                renderStudentsView();
             } else if (viewName === 'dashboard') {
                 updateDashboard();
             }
@@ -725,6 +882,14 @@
         
         // Modal Functions
         function openSessionModal() {
+            if (sections.length === 0) {
+                alert('Please add a section in Students before creating a session.');
+                showView('students');
+                setActiveNav('students');
+                return;
+            }
+
+            renderSectionOptions();
             document.getElementById('sessionModal').classList.add('active');
         }
         
@@ -734,6 +899,10 @@
         }
         
         function openAddStudentModal() {
+            if (!getSelectedSection()) {
+                alert('Please add or select a section first.');
+                return;
+            }
             document.getElementById('studentModal').classList.add('active');
         }
         
@@ -745,10 +914,20 @@
         // Create Session
         async function createSession(e) {
             e.preventDefault();
+
+            const sectionId = document.getElementById('sessionSection').value;
+            const section = getSectionById(sectionId);
+
+            if (!section) {
+                alert('Please select a section for this session.');
+                return;
+            }
             
             const session = {
                 id: 'session_' + Date.now(),
                 name: document.getElementById('sessionName').value,
+                section_id: section.id,
+                section_name: section.name,
                 type: document.getElementById('sessionType').value,
                 instructor: document.getElementById('instructorName').value,
                 num_seats: parseInt(document.getElementById('numSeats').value),
@@ -772,8 +951,8 @@
             });
             
             if (success) {
-                currentSession = session;
-                allStudents = [];
+                sessionSectionMap[session.id] = section.id;
+                saveSessionSectionMap();
                 closeSessionModal();
                 alert('✓ Session created: ' + session.name);
                 loadSessions();
@@ -786,78 +965,171 @@
         async function addStudent(e) {
             e.preventDefault();
             
-            if (!currentSession) {
-                alert('Please create or select a session first');
+            const section = getSelectedSection();
+
+            if (!section) {
+                alert('Please add or select a section first');
                 return;
             }
             
             const student = {
                 id: 'student_' + Date.now(),
-                session_id: currentSession.id,
+                section_id: section.id,
                 name: document.getElementById('studentName').value,
                 student_number: document.getElementById('studentNumber').value,
                 seat_number: parseInt(document.getElementById('seatNumber').value),
+                card_id: document.getElementById('rfidUID').value,
                 rfid_uid: document.getElementById('rfidUID').value,
                 ble_id: document.getElementById('bleID').value || 'ble_' + Math.random().toString(36).substr(2, 9),
                 created_at: new Date().toISOString()
             };
             
-            // Save to Supabase (create a new students table or use attendance_logs)
-            const success = await supabaseInsert('students', {
-                name: student.name,
-                card_uid: student.rfid_uid,
-                ble_uuid: student.ble_id
-            });
-            
-            if (success) {
-                allStudents.push(student);
-                updateStudentsTable();
-                closeStudentModal();
-                alert('✓ Student added: ' + student.name);
-            } else {
-                alert('✗ Failed to add student');
-            }
+            section.students.push(student);
+            saveSections();
+            updateStudentsTable();
+            closeStudentModal();
+            alert('✓ Student added: ' + student.name);
         }
         
-        // CSV Upload
-        function handleCSVUpload(e) {
+        function addSection() {
+            const input = document.getElementById('newSectionName');
+            const name = input.value.trim();
+
+            if (!name) {
+                alert('Please enter a section name.');
+                return;
+            }
+
+            if (sections.some(section => section.name.toLowerCase() === name.toLowerCase())) {
+                alert('That section already exists.');
+                return;
+            }
+
+            const section = {
+                id: 'section_' + Date.now(),
+                name,
+                students: []
+            };
+
+            sections.push(section);
+            selectedSectionId = section.id;
+            localStorage.setItem('tapin_selected_section', selectedSectionId);
+            saveSections();
+            input.value = '';
+            renderStudentsView();
+        }
+
+        function selectSection(id) {
+            selectedSectionId = id;
+            localStorage.setItem('tapin_selected_section', selectedSectionId);
+            renderStudentsView();
+        }
+
+        function deleteSelectedSection() {
+            const section = getSelectedSection();
+            if (!section) {
+                alert('No section selected.');
+                return;
+            }
+
+            if (!confirm('Delete this section and its student list?')) return;
+
+            sections = sections.filter(item => item.id !== section.id);
+            Object.entries(sessionSectionMap).forEach(([sessionId, sectionId]) => {
+                if (sectionId === section.id) delete sessionSectionMap[sessionId];
+            });
+            saveSections();
+            saveSessionSectionMap();
+            ensureSelectedSection();
+            renderStudentsView();
+            loadSessions();
+        }
+
+        function getRowValue(row, aliases) {
+            const normalizedAliases = aliases.map(normalizeHeader);
+            const key = Object.keys(row).find(rowKey => normalizedAliases.includes(normalizeHeader(rowKey)));
+            return key ? String(row[key]).trim() : '';
+        }
+
+        function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
+
+            const section = getSelectedSection();
+
+            if (!section) {
+                alert('Please add or select a section first.');
+                e.target.value = '';
+                return;
+            }
+
+            if (!window.XLSX) {
+                alert('Excel importer is still loading. Please check your internet connection and try again.');
+                e.target.value = '';
+                return;
+            }
             
             const reader = new FileReader();
             reader.onload = function(event) {
-                const csv = event.target.result;
-                const lines = csv.trim().split('\n');
-                
-                // Skip header
-                for (let i = 1; i < lines.length; i++) {
-                    const [name, studentNum, seat, uid, ble] = lines[i].split(',').map(s => s.trim());
-                    
-                    if (!name || !studentNum) continue;
-                    
-                    const student = {
-                        id: 'student_' + Date.now() + i,
-                        session_id: currentSession?.id,
+                const workbook = XLSX.read(event.target.result, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                const importedStudents = [];
+                let skippedRows = 0;
+
+                rows.forEach((row, index) => {
+                    const name = getRowValue(row, ['Name']);
+                    const studentNumber = getRowValue(row, ['Student #', 'Student Number', 'Student No']);
+                    const cardId = getRowValue(row, ['Card ID', 'Card UID', 'RFID UID']);
+                    const seatNumber = getRowValue(row, ['Seat #', 'Seat Number', 'Seat']);
+
+                    if (!name && !studentNumber && !cardId && !seatNumber) return;
+
+                    if (!name || !studentNumber || !cardId || !seatNumber) {
+                        skippedRows += 1;
+                        return;
+                    }
+
+                    importedStudents.push({
+                        id: 'student_' + Date.now() + '_' + index,
+                        section_id: section.id,
                         name,
-                        student_number: studentNum,
-                        seat_number: parseInt(seat) || 0,
-                        rfid_uid: uid || '',
-                        ble_id: ble || 'ble_' + Math.random().toString(36).substr(2, 9),
+                        student_number: studentNumber,
+                        seat_number: parseInt(seatNumber) || seatNumber,
+                        card_id: cardId,
+                        rfid_uid: cardId,
+                        ble_id: getRowValue(row, ['BLE ID', 'BLE UUID']) || 'ble_' + Math.random().toString(36).substr(2, 9),
                         created_at: new Date().toISOString()
-                    };
-                    
-                    allStudents.push(student);
+                    });
+                });
+
+                if (importedStudents.length === 0) {
+                    alert('No students imported. Please check that the Excel file has Name, Student #, Card ID, and Seat # columns.');
+                    e.target.value = '';
+                    return;
                 }
-                
+
+                section.students.push(...importedStudents);
+                saveSections();
                 updateStudentsTable();
-                alert('Imported ' + (lines.length - 1) + ' students');
+                alert('Imported ' + importedStudents.length + ' students' + (skippedRows ? '. Skipped ' + skippedRows + ' incomplete rows.' : '.'));
+                e.target.value = '';
             };
-            reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         }
         
         // Update UI
         function updateStudentsTable() {
             const tbody = document.getElementById('studentsTableBody');
+            const section = getSelectedSection();
+
+            if (!section) {
+                allStudents = [];
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Create a section first</td></tr>';
+                return;
+            }
+
+            allStudents = section.students;
             
             if (allStudents.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No students added</td></tr>';
@@ -866,44 +1138,77 @@
             
             tbody.innerHTML = allStudents.map(s => `
                 <tr>
-                    <td>${s.name}</td>
-                    <td>${s.student_number}</td>
-                    <td>${s.seat_number}</td>
-                    <td><code>${s.rfid_uid}</code></td>
-                    <td><code>${s.ble_id.substring(0, 8)}...</code></td>
+                    <td>${escapeHTML(s.name)}</td>
+                    <td>${escapeHTML(s.student_number)}</td>
+                    <td>${escapeHTML(s.seat_number)}</td>
+                    <td><code>${escapeHTML(s.card_id || s.rfid_uid)}</code></td>
+                    <td><code>${escapeHTML((s.ble_id || '').substring(0, 8))}...</code></td>
                     <td><button class="btn-danger" onclick="removeStudent('${s.id}')">Remove</button></td>
                 </tr>
             `).join('');
         }
         
         function removeStudent(id) {
-            allStudents = allStudents.filter(s => s.id !== id);
+            const section = getSelectedSection();
+            if (!section) return;
+
+            section.students = section.students.filter(s => s.id !== id);
+            saveSections();
             updateStudentsTable();
+        }
+
+        function normalizeSession(s) {
+            const sectionId = s.section_id || sessionSectionMap[s.id] || '';
+            const section = getSectionById(sectionId);
+
+            return {
+                id: s.id,
+                name: s.class_name || s.name || 'Untitled Session',
+                type: s.session_type || s.type || 'class',
+                instructor: s.instructor_name || s.instructor || '',
+                num_seats: s.total_seats || s.num_seats || 0,
+                start_time: s.start_time || '',
+                end_time: s.end_time || '',
+                status: s.status || 'scheduled',
+                section_id: sectionId,
+                section_name: section ? section.name : 'No section assigned'
+            };
+        }
+
+        function getStudentsForSession(session) {
+            const section = getSectionById(session?.section_id || sessionSectionMap[session?.id]);
+            return section ? section.students : [];
         }
         
         function loadSessions() {
             const list = document.getElementById('sessionsList');
             list.innerHTML = '<p>Loading sessions...</p>';
             
-            supabaseQuery('sessions').then(sessions => {
+            return supabaseQuery('sessions').then(sessions => {
                 if (!sessions || sessions.length === 0) {
+                    allSessions = [];
+                    currentSession = null;
                     list.innerHTML = '<p>No sessions found.</p>';
                     return;
                 }
                 
-                allSessions = sessions;
-                list.innerHTML = sessions.map(s => `
+                allSessions = sessions.map(normalizeSession);
+                currentSession = activeSessionId ? allSessions.find(s => s.id === activeSessionId) || null : null;
+
+                list.innerHTML = allSessions.map(s => `
                     <div class="session-item">
                         <div class="session-info">
-                            <div class="title">${s.class_name}</div>
+                            <div class="title">${escapeHTML(s.name)}</div>
                             <div class="subtitle">
-                                <strong>${s.session_type === 'class' ? '📚 Class' : '✏️ Exam'}</strong> | 
-                                ${s.instructor_name} | 
-                                Seats: ${s.total_seats}
+                                <strong>${s.type === 'class' ? '📚 Class' : '✏️ Exam'}</strong> | 
+                                Section: ${escapeHTML(s.section_name)} | 
+                                ${escapeHTML(s.instructor)} | 
+                                Seats: ${escapeHTML(s.num_seats)} | 
+                                Status: ${escapeHTML(s.id === activeSessionId ? 'active' : s.status)}
                             </div>
                         </div>
                         <div class="session-actions">
-                            <button class="btn-success" onclick="selectSession('${s.id}')">Select</button>
+                            <button class="${s.id === activeSessionId ? 'btn-secondary' : 'btn-success'}" onclick="toggleSessionStatus('${s.id}')">${s.id === activeSessionId ? 'Deactivate' : 'Activate'}</button>
                             <button class="btn-danger" onclick="deleteSession('${s.id}')">Delete</button>
                         </div>
                     </div>
@@ -911,14 +1216,47 @@
             });
         }
         
-        function selectSession(id) {
+        function toggleSessionStatus(id) {
+            if (activeSessionId === id) {
+                deactivateSession(id);
+            } else {
+                activateSession(id);
+            }
+        }
+
+        async function activateSession(id) {
             const session = allSessions.find(s => s.id === id);
             if (session) {
+                if (activeSessionId && activeSessionId !== id) {
+                    await supabaseUpdate('sessions', activeSessionId, { status: 'inactive' });
+                }
+
+                activeSessionId = id;
+                localStorage.setItem('tapin_active_session', activeSessionId);
+                session.status = 'active';
                 currentSession = session;
-                allStudents = [];
-                alert('✓ Session selected: ' + session.class_name);
-                updateStudentsTable();
+                await supabaseUpdate('sessions', id, { status: 'active' });
+                alert('✓ Session activated: ' + session.name);
+                loadSessions();
+                updateDashboard();
             }
+        }
+
+        async function deactivateSession(id) {
+            await supabaseUpdate('sessions', id, { status: 'inactive' });
+
+            if (activeSessionId === id) {
+                activeSessionId = '';
+                localStorage.removeItem('tapin_active_session');
+            }
+
+            if (currentSession?.id === id) {
+                currentSession = null;
+            }
+
+            alert('✓ Session deactivated');
+            loadSessions();
+            updateDashboard();
         }
         
         function deleteSession(id) {
@@ -928,8 +1266,15 @@
                 if (success) {
                     if (currentSession?.id === id) {
                         currentSession = null;
-                        allStudents = [];
                     }
+
+                    if (activeSessionId === id) {
+                        activeSessionId = '';
+                        localStorage.removeItem('tapin_active_session');
+                    }
+
+                    delete sessionSectionMap[id];
+                    saveSessionSectionMap();
                     alert('✓ Session deleted');
                     loadSessions();
                 } else {
@@ -939,6 +1284,10 @@
         }
         
         function updateDashboard() {
+            if (activeSessionId && !currentSession) {
+                currentSession = allSessions.find(s => s.id === activeSessionId) || null;
+            }
+
             if (!currentSession) {
                 document.getElementById('currentSessionInfo').innerHTML = '<p>No session active. Go to Sessions to start one.</p>';
                 document.getElementById('sessionStatus').textContent = 'No Session Active';
@@ -949,41 +1298,96 @@
                 document.getElementById('totalCount').textContent = '0';
                 return;
             }
+
+            const sessionStudents = getStudentsForSession(currentSession);
             
             document.getElementById('currentSessionInfo').innerHTML = `
-                <p><strong>Session:</strong> ${currentSession.name}</p>
+                <p><strong>Session:</strong> ${escapeHTML(currentSession.name)}</p>
+                <p><strong>Section:</strong> ${escapeHTML(currentSession.section_name)}</p>
                 <p><strong>Type:</strong> ${currentSession.type === 'class' ? '📚 Class' : '✏️ Exam'}</p>
-                <p><strong>Instructor:</strong> ${currentSession.instructor}</p>
-                <p><strong>Students Registered:</strong> ${allStudents.length}</p>
+                <p><strong>Instructor:</strong> ${escapeHTML(currentSession.instructor)}</p>
+                <p><strong>Students Registered:</strong> ${sessionStudents.length}</p>
             `;
             
             document.getElementById('sessionStatus').textContent = 'Session Active';
             document.getElementById('sessionStatus').className = 'status-badge status-active';
-            document.getElementById('totalCount').textContent = allStudents.length;
+            document.getElementById('totalCount').textContent = sessionStudents.length;
         }
         
         function loadHistory() {
-            const historyBody = document.getElementById('historyTableBody');
-            historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading attendance data...</td></tr>';
-            
-            supabaseQuery('attendance_logs').then(logs => {
-                if (!logs || logs.length === 0) {
-                    historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No attendance records found</td></tr>';
+            const list = document.getElementById('pastSessionsList');
+            list.innerHTML = '<p>Loading past sessions and attendance logs...</p>';
+
+            Promise.all([
+                supabaseQuery('sessions'),
+                supabaseQuery('attendance_logs')
+            ]).then(([sessions, logs]) => {
+                allSessions = (sessions || []).map(normalizeSession);
+                allAttendance = logs || [];
+
+                const pastSessions = allSessions.filter(session => session.id !== activeSessionId);
+
+                if (pastSessions.length === 0) {
+                    list.innerHTML = '<p>No past sessions found.</p>';
                     return;
                 }
                 
-                historyBody.innerHTML = logs.map(log => `
-                    <tr>
-                        <td>${log.session_id}</td>
-                        <td>-</td>
-                        <td>${log.seat_number}</td>
-                        <td><code>${log.card_uid}</code></td>
-                        <td><code>-</code></td>
-                        <td>${new Date(log.created_at).toLocaleString()}</td>
-                        <td><span class="badge badge-${log.attendance_status.toLowerCase()}">${log.attendance_status}</span></td>
-                    </tr>
-                `).join('');
+                list.innerHTML = pastSessions.map(session => {
+                    const sessionLogs = allAttendance.filter(log => log.session_id === session.id);
+                    const logRows = sessionLogs.length ? sessionLogs.map(log => {
+                        const student = findStudentForLog(log, session);
+                        const status = log.attendance_status || 'UNKNOWN';
+
+                        return `
+                            <tr>
+                                <td>${escapeHTML(student?.name || '-')}</td>
+                                <td>${escapeHTML(log.seat_number || student?.seat_number || '-')}</td>
+                                <td><code>${escapeHTML(log.card_uid || student?.card_id || '-')}</code></td>
+                                <td>${escapeHTML(new Date(log.created_at).toLocaleString())}</td>
+                                <td><span class="badge badge-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></td>
+                            </tr>
+                        `;
+                    }).join('') : '<tr><td colspan="5" style="text-align: center;">No attendance records for this session</td></tr>';
+
+                    return `
+                        <div class="session-item" style="display: block;">
+                            <div class="session-info">
+                                <div class="title">${escapeHTML(session.name)}</div>
+                                <div class="subtitle">
+                                    Section: ${escapeHTML(session.section_name)} |
+                                    ${escapeHTML(session.instructor)} |
+                                    Status: ${escapeHTML(session.status)}
+                                </div>
+                            </div>
+                            <div class="session-log">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Seat</th>
+                                            <th>Card ID</th>
+                                            <th>Timestamp</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${logRows}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             });
+        }
+
+        function findStudentForLog(log, session) {
+            const sessionStudents = getStudentsForSession(session);
+            const logCardId = String(log.card_uid || '').trim();
+            const logSeat = String(log.seat_number || '').trim();
+
+            return sessionStudents.find(student => (
+                String(student.card_id || student.rfid_uid || '').trim() === logCardId ||
+                String(student.seat_number || '').trim() === logSeat
+            ));
         }
         
         function exportAttendanceCSV() {
@@ -997,7 +1401,8 @@
         // Initialize
         window.addEventListener('load', function() {
             console.log('✓ Dashboard loaded - Syncing with Supabase');
-            loadSessions();
+            renderSectionOptions();
+            loadSessions().then(updateDashboard);
             
             // Auto-refresh attendance every 3 seconds when on dashboard
             setInterval(function() {
@@ -1006,15 +1411,19 @@
                     supabaseQuery('attendance_logs', { session_id: currentSession.id }).then(logs => {
                         if (logs && logs.length > 0) {
                             const liveBody = document.getElementById('liveAttendanceBody');
-                            liveBody.innerHTML = logs.slice(-10).map(log => `
-                                <tr>
-                                    <td>-</td>
-                                    <td><code>${log.card_uid}</code></td>
-                                    <td>${log.seat_number}</td>
-                                    <td><span class="badge badge-${log.attendance_status.toLowerCase()}">${log.attendance_status}</span></td>
-                                    <td>${new Date(log.created_at).toLocaleTimeString()}</td>
-                                </tr>
-                            `).join('');
+                            liveBody.innerHTML = logs.slice(-10).map(log => {
+                                const student = findStudentForLog(log, currentSession);
+                                const status = log.attendance_status || 'UNKNOWN';
+                                return `
+                                    <tr>
+                                        <td>${escapeHTML(student?.name || '-')}</td>
+                                        <td><code>${escapeHTML(log.card_uid || student?.card_id || '-')}</code></td>
+                                        <td>${escapeHTML(log.seat_number || student?.seat_number || '-')}</td>
+                                        <td><span class="badge badge-${escapeHTML(status.toLowerCase())}">${escapeHTML(status)}</span></td>
+                                        <td>${escapeHTML(new Date(log.created_at).toLocaleTimeString())}</td>
+                                    </tr>
+                                `;
+                            }).join('');
                             
                             // Update stats
                             const present = logs.filter(l => l.attendance_status === 'PRESENT').length;
