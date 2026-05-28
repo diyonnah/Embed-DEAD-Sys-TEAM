@@ -16,6 +16,99 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
         }
+
+        body.auth-mode .sidebar,
+        body.auth-mode .main {
+            display: none;
+        }
+
+        .auth-screen {
+            min-height: 100vh;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .auth-screen.active {
+            display: flex;
+        }
+
+        .auth-panel {
+            width: min(920px, 100%);
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 16px 40px rgba(31, 41, 55, 0.14);
+            padding: 28px;
+        }
+
+        .auth-panel h1,
+        .auth-panel h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .auth-panel p {
+            color: #6b7280;
+            margin-bottom: 18px;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .role-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: left;
+            background: #fff;
+            color: #1f2937;
+            cursor: pointer;
+        }
+
+        .role-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+        }
+
+        .role-card strong {
+            display: block;
+            color: #111827;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 18px 0;
+        }
+
+        .auth-tab {
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .auth-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .student-id-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 18px;
+            background: #f9fafb;
+        }
+
+        .student-id-card p {
+            margin: 10px 0;
+            color: #1f2937;
+        }
         
         .sidebar {
             position: fixed;
@@ -384,6 +477,105 @@
             align-items: end;
         }
 
+        .section-form {
+            display: none;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+            margin-top: 14px;
+        }
+
+        .section-form.active {
+            display: grid;
+        }
+
+        .section-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .section-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .section-card-header {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 14px 16px;
+            background: #f9fafb;
+            border: none;
+            border-radius: 0;
+            color: #111827;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .section-card-header:hover {
+            background: #eef2ff;
+        }
+
+        .section-card-title {
+            font-weight: bold;
+        }
+
+        .section-card-meta {
+            display: block;
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .section-icon-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .section-card-body {
+            display: none;
+            padding: 16px;
+        }
+
+        .section-card.expanded .section-card-body {
+            display: block;
+        }
+
+        .table-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .upload-area {
+            border: 2px dashed #c7d2fe;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .upload-area.drag-over {
+            border-color: #667eea;
+            background: #eef2ff;
+        }
+
         .session-log {
             margin-top: 12px;
             overflow-x: auto;
@@ -422,10 +614,85 @@
             .section-toolbar {
                 grid-template-columns: 1fr;
             }
+
+            .role-grid,
+            .section-form {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
-<body>
+<body class="auth-mode">
+    <div id="roleScreen" class="auth-screen active">
+        <div class="auth-panel">
+            <h1>TapIn</h1>
+            <p>Choose how you want to continue.</p>
+            <div class="role-grid">
+                <button class="role-card" onclick="chooseRole('faculty')">
+                    <strong>Faculty</strong>
+                    Manage sessions, rosters, attendance logs, and dashboard tools.
+                </button>
+                <button class="role-card" onclick="chooseRole('student')">
+                    <strong>Student</strong>
+                    Register your card and view your assigned BLE ID.
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="facultyAuthScreen" class="auth-screen">
+        <div class="auth-panel">
+            <h2>Faculty Access</h2>
+            <p>Sign up or log in to continue to the faculty dashboard.</p>
+            <div class="auth-tabs">
+                <button id="facultyLoginTab" type="button" class="auth-tab active" onclick="setFacultyAuthMode('login')">Login</button>
+                <button id="facultySignupTab" type="button" class="auth-tab" onclick="setFacultyAuthMode('signup')">Sign Up</button>
+            </div>
+            <form id="facultyAuthForm" onsubmit="handleFacultyAuth(event)">
+                <div id="facultyNameGroup" class="form-group" style="display: none;">
+                    <label>Faculty Name</label>
+                    <input type="text" id="facultyName" placeholder="e.g., Engr. Rufo Marasigan Jr.">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="facultyEmail" required placeholder="faculty@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="facultyPassword" required placeholder="Enter password">
+                </div>
+                <div class="button-group">
+                    <button id="facultyAuthSubmit" type="submit" class="btn-success">Login</button>
+                    <button type="button" class="btn-secondary" onclick="showRoleScreen()">Back</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="studentPortalScreen" class="auth-screen">
+        <div class="auth-panel">
+            <h2>Student BLE ID</h2>
+            <div id="studentRegistrationPanel">
+                <p>Enter your name and card ID once. TapIn will generate your BLE ID and remember it on this device.</p>
+                <form onsubmit="handleStudentRegistration(event)">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="studentPortalName" required placeholder="e.g., Dela Cruz, Juan A.">
+                    </div>
+                    <div class="form-group">
+                        <label>Card ID</label>
+                        <input type="text" id="studentPortalCardId" required placeholder="e.g., 7301A138">
+                    </div>
+                    <div class="button-group">
+                        <button type="submit" class="btn-success">Generate BLE ID</button>
+                        <button type="button" class="btn-secondary" onclick="showRoleScreen()">Back</button>
+                    </div>
+                </form>
+            </div>
+            <div id="studentBlePanel" class="student-id-card" style="display: none;"></div>
+        </div>
+    </div>
+
     <div class="sidebar">
         <h1>🎓 TapIn</h1>
         <ul class="nav-menu">
@@ -433,6 +700,7 @@
             <li><button class="nav-btn" data-view="sessions">📅 Sessions</button></li>
             <li><button class="nav-btn" data-view="students">👥 Students</button></li>
             <li><button class="nav-btn" data-view="history">📋 History</button></li>
+            <li><button class="nav-btn" onclick="logoutFaculty()">Log Out</button></li>
         </ul>
     </div>
     
@@ -511,50 +779,28 @@
             <div class="header">
                 <h2>Students</h2>
                 <div class="button-group" style="margin-bottom: 0;">
-                    <button class="btn-primary" onclick="openAddStudentModal()">+ Add Student Manually</button>
-                    <button class="btn-primary" onclick="document.getElementById('xlsxUpload').click()">📤 Import Excel</button>
-                    <input type="file" id="xlsxUpload" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(event)">
+                    <button class="btn-primary" onclick="openImportReminderModal()">📤 Import Excel</button>
                 </div>
             </div>
 
             <div class="card">
                 <h3>Sections</h3>
-                <div class="section-toolbar">
+                <div class="button-group">
+                    <button class="btn-success" onclick="showAddSectionForm()">+ Add Section</button>
+                </div>
+                <div id="sectionForm" class="section-form">
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label>Current Section</label>
-                        <select id="sectionSelect" onchange="selectSection(this.value)">
-                            <option value="">No sections yet</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>Add Section</label>
+                        <label>Section Name</label>
                         <input type="text" id="newSectionName" placeholder="e.g., CMPE 409 - Section 1">
                     </div>
-                    <button class="btn-success" onclick="addSection()">Add Section</button>
-                    <button class="btn-danger" onclick="deleteSelectedSection()">Delete Section</button>
+                    <div class="button-group" style="margin-bottom: 0;">
+                        <button class="btn-success" onclick="addSection()">Save Section</button>
+                        <button class="btn-secondary" onclick="hideAddSectionForm()">Cancel</button>
+                    </div>
                 </div>
-            </div>
-
-            <div class="card">
-                <h3>Students in Section</h3>
-                <p class="note">Excel file must contain the following fields: <strong>Name</strong>, <strong>Student #</strong>, <strong>Card ID</strong>, and <strong>Seat #</strong>.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Student #</th>
-                            <th>Seat #</th>
-                            <th>Card ID</th>
-                            <th>BLE ID</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="studentsTableBody">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: #999;">No students added yet</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div id="sectionsList" class="section-list">
+                    <p>No sections yet. Add a section to start organizing students.</p>
+                </div>
             </div>
         </div>
         
@@ -637,6 +883,8 @@
                 <button class="close-btn" onclick="closeStudentModal()">&times;</button>
             </div>
             <form onsubmit="addStudent(event)">
+                <input type="hidden" id="studentSectionId">
+                <input type="hidden" id="studentEditId">
                 <div class="form-group">
                     <label>Full Name (Last, First, MI)</label>
                     <input type="text" id="studentName" required placeholder="e.g., Esparrago, Jonnah E.">
@@ -650,7 +898,7 @@
                     <input type="number" id="seatNumber" required min="1">
                 </div>
                 <div class="form-group">
-                    <label>RFID UID</label>
+                    <label>Card ID</label>
                     <input type="text" id="rfidUID" required placeholder="e.g., 7301A138">
                 </div>
                 <div class="form-group">
@@ -658,10 +906,41 @@
                     <input type="text" id="bleID" placeholder="Optional - auto-generated">
                 </div>
                 <div class="button-group">
-                    <button type="submit" class="btn-success">Add Student</button>
+                    <button id="studentSubmitButton" type="submit" class="btn-success">Add Student</button>
                     <button type="button" class="btn-secondary" onclick="closeStudentModal()">Cancel</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- IMPORT EXCEL MODAL -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Import Class List</h3>
+                <button class="close-btn" onclick="closeImportModal()">&times;</button>
+            </div>
+            <div id="importReminderStep">
+                <p class="note">Before uploading, make sure your Excel file has these columns: <strong>Name</strong>, <strong>Student #</strong>, <strong>Seat #</strong>, <strong>Card ID</strong>, <strong>BLE ID</strong>, and <strong>Action</strong> for auto sync.</p>
+                <div class="form-group">
+                    <label>Import Into Section</label>
+                    <select id="importSectionSelect"></select>
+                </div>
+                <div class="button-group">
+                    <button class="btn-success" onclick="confirmImportReminder()">I Understand</button>
+                    <button class="btn-secondary" onclick="closeImportModal()">Cancel</button>
+                </div>
+            </div>
+            <div id="importUploadStep" style="display: none;">
+                <input type="file" id="xlsxUpload" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(event)">
+                <div id="uploadDropZone" class="upload-area" onclick="document.getElementById('xlsxUpload').click()">
+                    <strong>Click to upload</strong>
+                    <p>or drag and drop an Excel file here</p>
+                </div>
+                <div class="button-group" style="margin-top: 16px;">
+                    <button class="btn-secondary" onclick="closeImportModal()">Close</button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -677,6 +956,8 @@
         let selectedSectionId = localStorage.getItem('tapin_selected_section') || '';
         let sessionSectionMap = loadStorageObject('tapin_session_sections', {});
         let activeSessionId = localStorage.getItem('tapin_active_session') || '';
+        let expandedSectionId = localStorage.getItem('tapin_expanded_section') || '';
+        let facultyAuthMode = 'login';
         
         // ===== SUPABASE FETCH FUNCTIONS =====
         async function supabaseQuery(table, filters = {}) {
@@ -789,6 +1070,114 @@
             localStorage.setItem('tapin_session_sections', JSON.stringify(sessionSectionMap));
         }
 
+        function generateBLEId() {
+            if (window.crypto && crypto.randomUUID) {
+                return 'ble_' + crypto.randomUUID();
+            }
+
+            return 'ble_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 10);
+        }
+
+        function showAuthScreen(screenId) {
+            document.body.classList.add('auth-mode');
+            document.querySelectorAll('.auth-screen').forEach(screen => screen.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showFacultyDashboard() {
+            document.body.classList.remove('auth-mode');
+            document.querySelectorAll('.auth-screen').forEach(screen => screen.classList.remove('active'));
+            showView('dashboard');
+            setActiveNav('dashboard');
+            loadSessions().then(updateDashboard);
+        }
+
+        function showRoleScreen() {
+            showAuthScreen('roleScreen');
+        }
+
+        function chooseRole(role) {
+            if (role === 'faculty') {
+                showAuthScreen('facultyAuthScreen');
+                setFacultyAuthMode('login');
+                return;
+            }
+
+            renderStudentPortal();
+            showAuthScreen('studentPortalScreen');
+        }
+
+        function setFacultyAuthMode(mode) {
+            facultyAuthMode = mode;
+            document.getElementById('facultyLoginTab').classList.toggle('active', mode === 'login');
+            document.getElementById('facultySignupTab').classList.toggle('active', mode === 'signup');
+            document.getElementById('facultyNameGroup').style.display = mode === 'signup' ? 'block' : 'none';
+            document.getElementById('facultyName').required = mode === 'signup';
+            document.getElementById('facultyAuthSubmit').textContent = mode === 'signup' ? 'Create Account' : 'Login';
+        }
+
+        function handleFacultyAuth(e) {
+            e.preventDefault();
+            const faculty = {
+                name: document.getElementById('facultyName').value.trim() || 'Faculty',
+                email: document.getElementById('facultyEmail').value.trim(),
+                logged_in_at: new Date().toISOString()
+            };
+
+            localStorage.setItem('tapin_faculty_session', JSON.stringify(faculty));
+            showFacultyDashboard();
+        }
+
+        function logoutFaculty() {
+            localStorage.removeItem('tapin_faculty_session');
+            showRoleScreen();
+        }
+
+        function getStoredStudentProfile() {
+            return loadStorageObject('tapin_student_ble_profile', null);
+        }
+
+        function renderStudentPortal() {
+            const profile = getStoredStudentProfile();
+            const registrationPanel = document.getElementById('studentRegistrationPanel');
+            const blePanel = document.getElementById('studentBlePanel');
+
+            if (profile?.ble_id) {
+                registrationPanel.style.display = 'none';
+                blePanel.style.display = 'block';
+                blePanel.innerHTML = `
+                    <p><strong>Name:</strong> ${escapeHTML(profile.name)}</p>
+                    <p><strong>Card ID:</strong> <code>${escapeHTML(profile.card_id)}</code></p>
+                    <p><strong>BLE ID:</strong> <code>${escapeHTML(profile.ble_id)}</code></p>
+                `;
+                return;
+            }
+
+            registrationPanel.style.display = 'block';
+            blePanel.style.display = 'none';
+            blePanel.innerHTML = '';
+        }
+
+        function handleStudentRegistration(e) {
+            e.preventDefault();
+            const existingProfile = getStoredStudentProfile();
+
+            if (existingProfile?.ble_id) {
+                renderStudentPortal();
+                return;
+            }
+
+            const profile = {
+                name: document.getElementById('studentPortalName').value.trim(),
+                card_id: document.getElementById('studentPortalCardId').value.trim(),
+                ble_id: generateBLEId(),
+                created_at: new Date().toISOString()
+            };
+
+            localStorage.setItem('tapin_student_ble_profile', JSON.stringify(profile));
+            renderStudentPortal();
+        }
+
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
                 '&': '&amp;',
@@ -827,26 +1216,26 @@
 
         function renderSectionOptions() {
             ensureSelectedSection();
-            const sectionSelect = document.getElementById('sectionSelect');
             const sessionSection = document.getElementById('sessionSection');
+            const importSectionSelect = document.getElementById('importSectionSelect');
             const options = sections.map(section => (
                 `<option value="${section.id}" ${section.id === selectedSectionId ? 'selected' : ''}>${escapeHTML(section.name)}</option>`
             )).join('');
-
-            if (sectionSelect) {
-                sectionSelect.innerHTML = options || '<option value="">No sections yet</option>';
-                sectionSelect.value = selectedSectionId;
-            }
 
             if (sessionSection) {
                 sessionSection.innerHTML = options || '<option value="">Create a section in Students first</option>';
                 sessionSection.value = selectedSectionId;
             }
+
+            if (importSectionSelect) {
+                importSectionSelect.innerHTML = options || '<option value="">Create a section first</option>';
+                importSectionSelect.value = selectedSectionId;
+            }
         }
 
         function renderStudentsView() {
             renderSectionOptions();
-            updateStudentsTable();
+            renderSectionsList();
         }
 
         function setActiveNav(viewName) {
@@ -898,11 +1287,23 @@
             document.querySelector('#sessionModal form').reset();
         }
         
-        function openAddStudentModal() {
-            if (!getSelectedSection()) {
+        function openAddStudentModal(sectionId, studentId = '') {
+            const section = getSectionById(sectionId);
+            if (!section) {
                 alert('Please add or select a section first.');
                 return;
             }
+
+            const student = studentId ? section.students.find(item => item.id === studentId) : null;
+            document.getElementById('studentSectionId').value = sectionId;
+            document.getElementById('studentEditId').value = studentId;
+            document.getElementById('studentName').value = student?.name || '';
+            document.getElementById('studentNumber').value = student?.student_number || '';
+            document.getElementById('seatNumber').value = student?.seat_number || '';
+            document.getElementById('rfidUID').value = student?.card_id || student?.rfid_uid || '';
+            document.getElementById('bleID').value = student?.ble_id || '';
+            document.querySelector('#studentModal .modal-header h3').textContent = student ? 'Edit Student' : 'Add Student';
+            document.getElementById('studentSubmitButton').textContent = student ? 'Save Student' : 'Add Student';
             document.getElementById('studentModal').classList.add('active');
         }
         
@@ -965,32 +1366,49 @@
         async function addStudent(e) {
             e.preventDefault();
             
-            const section = getSelectedSection();
+            const sectionId = document.getElementById('studentSectionId').value;
+            const editId = document.getElementById('studentEditId').value;
+            const section = getSectionById(sectionId);
 
             if (!section) {
-                alert('Please add or select a section first');
+                alert('Please choose a section first');
                 return;
             }
             
             const student = {
-                id: 'student_' + Date.now(),
+                id: editId || 'student_' + Date.now(),
                 section_id: section.id,
                 name: document.getElementById('studentName').value,
                 student_number: document.getElementById('studentNumber').value,
                 seat_number: parseInt(document.getElementById('seatNumber').value),
                 card_id: document.getElementById('rfidUID').value,
                 rfid_uid: document.getElementById('rfidUID').value,
-                ble_id: document.getElementById('bleID').value || 'ble_' + Math.random().toString(36).substr(2, 9),
+                ble_id: document.getElementById('bleID').value || generateBLEId(),
                 created_at: new Date().toISOString()
             };
             
-            section.students.push(student);
+            if (editId) {
+                section.students = section.students.map(item => item.id === editId ? { ...item, ...student } : item);
+            } else {
+                section.students.push(student);
+            }
+
             saveSections();
-            updateStudentsTable();
+            renderSectionsList();
             closeStudentModal();
-            alert('✓ Student added: ' + student.name);
+            alert(editId ? '✓ Student updated: ' + student.name : '✓ Student added: ' + student.name);
         }
         
+        function showAddSectionForm() {
+            document.getElementById('sectionForm').classList.add('active');
+            document.getElementById('newSectionName').focus();
+        }
+
+        function hideAddSectionForm() {
+            document.getElementById('sectionForm').classList.remove('active');
+            document.getElementById('newSectionName').value = '';
+        }
+
         function addSection() {
             const input = document.getElementById('newSectionName');
             const name = input.value.trim();
@@ -1013,22 +1431,30 @@
 
             sections.push(section);
             selectedSectionId = section.id;
+            expandedSectionId = section.id;
             localStorage.setItem('tapin_selected_section', selectedSectionId);
+            localStorage.setItem('tapin_expanded_section', expandedSectionId);
             saveSections();
-            input.value = '';
+            hideAddSectionForm();
             renderStudentsView();
         }
 
-        function selectSection(id) {
+        function toggleSection(id) {
+            expandedSectionId = expandedSectionId === id ? '' : id;
             selectedSectionId = id;
             localStorage.setItem('tapin_selected_section', selectedSectionId);
+            if (expandedSectionId) {
+                localStorage.setItem('tapin_expanded_section', expandedSectionId);
+            } else {
+                localStorage.removeItem('tapin_expanded_section');
+            }
             renderStudentsView();
         }
 
-        function deleteSelectedSection() {
-            const section = getSelectedSection();
+        function deleteSection(sectionId) {
+            const section = getSectionById(sectionId);
             if (!section) {
-                alert('No section selected.');
+                alert('Section not found.');
                 return;
             }
 
@@ -1041,8 +1467,80 @@
             saveSections();
             saveSessionSectionMap();
             ensureSelectedSection();
+            if (expandedSectionId === section.id) {
+                expandedSectionId = '';
+                localStorage.removeItem('tapin_expanded_section');
+            }
             renderStudentsView();
             loadSessions();
+        }
+
+        function renderSectionsList() {
+            ensureSelectedSection();
+            if (expandedSectionId && !getSectionById(expandedSectionId)) {
+                expandedSectionId = '';
+                localStorage.removeItem('tapin_expanded_section');
+            }
+
+            const list = document.getElementById('sectionsList');
+            if (!list) return;
+
+            if (sections.length === 0) {
+                list.innerHTML = '<p>No sections yet. Add a section to start organizing students.</p>';
+                return;
+            }
+
+            list.innerHTML = sections.map(section => {
+                const isExpanded = expandedSectionId === section.id;
+                const rows = section.students.length ? section.students.map(student => `
+                    <tr>
+                        <td>${escapeHTML(student.name)}</td>
+                        <td>${escapeHTML(student.student_number)}</td>
+                        <td>${escapeHTML(student.seat_number)}</td>
+                        <td><code>${escapeHTML(student.card_id || student.rfid_uid)}</code></td>
+                        <td><code>${escapeHTML(student.ble_id || '-')}</code></td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="btn-secondary" onclick="openAddStudentModal('${section.id}', '${student.id}')">Edit</button>
+                                <button class="btn-danger" onclick="removeStudent('${section.id}', '${student.id}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('') : '<tr><td colspan="6" style="text-align: center;">No students in this section yet</td></tr>';
+
+                return `
+                    <div class="section-card ${isExpanded ? 'expanded' : ''}">
+                        <div class="section-card-header" onclick="toggleSection('${section.id}')">
+                            <span>
+                                <span class="section-card-title">${escapeHTML(section.name)}</span>
+                                <span class="section-card-meta">${section.students.length} student${section.students.length === 1 ? '' : 's'}</span>
+                            </span>
+                            <span class="section-icon-actions">
+                                <button class="btn-danger icon-btn" title="Delete section" onclick="event.stopPropagation(); deleteSection('${section.id}')">🗑</button>
+                            </span>
+                        </div>
+                        <div class="section-card-body">
+                            <div class="button-group">
+                                <button class="btn-primary" onclick="openAddStudentModal('${section.id}')">+ Add Student Manually</button>
+                                <button class="btn-danger" onclick="deleteSection('${section.id}')">Delete Section</button>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Student #</th>
+                                        <th>Seat #</th>
+                                        <th>Card ID</th>
+                                        <th>BLE ID</th>
+                                        <th style="text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function getRowValue(row, aliases) {
@@ -1051,21 +1549,68 @@
             return key ? String(row[key]).trim() : '';
         }
 
+        function hasExcelColumn(row, aliases) {
+            const normalizedAliases = aliases.map(normalizeHeader);
+            return Object.keys(row).some(rowKey => normalizedAliases.includes(normalizeHeader(rowKey)));
+        }
+
+        function openImportReminderModal() {
+            if (sections.length === 0) {
+                alert('Please add a section before importing students.');
+                return;
+            }
+
+            renderSectionOptions();
+            document.getElementById('importReminderStep').style.display = 'block';
+            document.getElementById('importUploadStep').style.display = 'none';
+            document.getElementById('xlsxUpload').value = '';
+            document.getElementById('importModal').classList.add('active');
+        }
+
+        function confirmImportReminder() {
+            const sectionId = document.getElementById('importSectionSelect').value;
+            if (!getSectionById(sectionId)) {
+                alert('Please choose a section for this import.');
+                return;
+            }
+
+            selectedSectionId = sectionId;
+            expandedSectionId = sectionId;
+            localStorage.setItem('tapin_selected_section', selectedSectionId);
+            localStorage.setItem('tapin_expanded_section', expandedSectionId);
+            document.getElementById('importReminderStep').style.display = 'none';
+            document.getElementById('importUploadStep').style.display = 'block';
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.remove('active');
+            document.getElementById('xlsxUpload').value = '';
+            document.getElementById('uploadDropZone').classList.remove('drag-over');
+        }
+
+        function handleExcelDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadDropZone').classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) importExcelFile(file);
+        }
+
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
+            importExcelFile(file);
+        }
 
-            const section = getSelectedSection();
+        function importExcelFile(file) {
+            const section = getSectionById(document.getElementById('importSectionSelect').value);
 
             if (!section) {
-                alert('Please add or select a section first.');
-                e.target.value = '';
+                alert('Please choose a section first.');
                 return;
             }
 
             if (!window.XLSX) {
                 alert('Excel importer is still loading. Please check your internet connection and try again.');
-                e.target.value = '';
                 return;
             }
             
@@ -1077,11 +1622,35 @@
                 const importedStudents = [];
                 let skippedRows = 0;
 
+                if (rows.length === 0) {
+                    alert('No rows found in the Excel file.');
+                    return;
+                }
+
+                const firstRow = rows[0];
+                const requiredColumns = [
+                    ['Name'],
+                    ['Student #', 'Student Number', 'Student No'],
+                    ['Seat #', 'Seat Number', 'Seat'],
+                    ['Card ID', 'Card UID', 'RFID UID'],
+                    ['BLE ID', 'BLE UUID'],
+                    ['Action']
+                ];
+
+                const missingColumns = requiredColumns.filter(aliases => !hasExcelColumn(firstRow, aliases)).map(aliases => aliases[0]);
+
+                if (missingColumns.length > 0) {
+                    alert('Missing required Excel columns: ' + missingColumns.join(', '));
+                    return;
+                }
+
                 rows.forEach((row, index) => {
                     const name = getRowValue(row, ['Name']);
                     const studentNumber = getRowValue(row, ['Student #', 'Student Number', 'Student No']);
                     const cardId = getRowValue(row, ['Card ID', 'Card UID', 'RFID UID']);
                     const seatNumber = getRowValue(row, ['Seat #', 'Seat Number', 'Seat']);
+                    const bleId = getRowValue(row, ['BLE ID', 'BLE UUID']);
+                    const action = getRowValue(row, ['Action']);
 
                     if (!name && !studentNumber && !cardId && !seatNumber) return;
 
@@ -1098,63 +1667,34 @@
                         seat_number: parseInt(seatNumber) || seatNumber,
                         card_id: cardId,
                         rfid_uid: cardId,
-                        ble_id: getRowValue(row, ['BLE ID', 'BLE UUID']) || 'ble_' + Math.random().toString(36).substr(2, 9),
+                        ble_id: bleId || generateBLEId(),
+                        sync_action: action,
                         created_at: new Date().toISOString()
                     });
                 });
 
                 if (importedStudents.length === 0) {
-                    alert('No students imported. Please check that the Excel file has Name, Student #, Card ID, and Seat # columns.');
-                    e.target.value = '';
+                    alert('No students imported. Please check that the Excel file has complete student rows.');
                     return;
                 }
 
                 section.students.push(...importedStudents);
                 saveSections();
-                updateStudentsTable();
+                renderStudentsView();
                 alert('Imported ' + importedStudents.length + ' students' + (skippedRows ? '. Skipped ' + skippedRows + ' incomplete rows.' : '.'));
-                e.target.value = '';
+                closeImportModal();
             };
             reader.readAsArrayBuffer(file);
         }
         
-        // Update UI
-        function updateStudentsTable() {
-            const tbody = document.getElementById('studentsTableBody');
-            const section = getSelectedSection();
-
-            if (!section) {
-                allStudents = [];
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Create a section first</td></tr>';
-                return;
-            }
-
-            allStudents = section.students;
-            
-            if (allStudents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No students added</td></tr>';
-                return;
-            }
-            
-            tbody.innerHTML = allStudents.map(s => `
-                <tr>
-                    <td>${escapeHTML(s.name)}</td>
-                    <td>${escapeHTML(s.student_number)}</td>
-                    <td>${escapeHTML(s.seat_number)}</td>
-                    <td><code>${escapeHTML(s.card_id || s.rfid_uid)}</code></td>
-                    <td><code>${escapeHTML((s.ble_id || '').substring(0, 8))}...</code></td>
-                    <td><button class="btn-danger" onclick="removeStudent('${s.id}')">Remove</button></td>
-                </tr>
-            `).join('');
-        }
-        
-        function removeStudent(id) {
-            const section = getSelectedSection();
+        function removeStudent(sectionId, id) {
+            const section = getSectionById(sectionId);
             if (!section) return;
 
+            if (!confirm('Delete this student?')) return;
             section.students = section.students.filter(s => s.id !== id);
             saveSections();
-            updateStudentsTable();
+            renderSectionsList();
         }
 
         function normalizeSession(s) {
@@ -1402,7 +1942,23 @@
         window.addEventListener('load', function() {
             console.log('✓ Dashboard loaded - Syncing with Supabase');
             renderSectionOptions();
-            loadSessions().then(updateDashboard);
+            renderStudentsView();
+
+            const dropZone = document.getElementById('uploadDropZone');
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            dropZone.addEventListener('dragleave', function() {
+                dropZone.classList.remove('drag-over');
+            });
+            dropZone.addEventListener('drop', handleExcelDrop);
+
+            if (localStorage.getItem('tapin_faculty_session')) {
+                showFacultyDashboard();
+            } else {
+                showRoleScreen();
+            }
             
             // Auto-refresh attendance every 3 seconds when on dashboard
             setInterval(function() {
