@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TapIn - Attendance Management System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .sidebar h1 {
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-menu li {
+            margin: 10px 0;
+        }
+        
+        .nav-menu button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .nav-menu button:hover,
+        .nav-menu button.active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .main {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h2 {
+            color: #667eea;
+        }
+        
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-inactive {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+        
+        .view {
+            display: none;
+        }
+        
+        .view.active {
+            display: block;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-present {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .badge-late {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .badge-absent {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+        
+        .badge-class {
+            background: #dbeafe;
+            color: #0c4a6e;
+        }
+        
+        .badge-exam {
+            background: #fce7f3;
+            color: #831843;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #667eea;
+            margin: 0;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-box .value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .stat-box .label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .session-item {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .session-info {
+            flex: 1;
+        }
+        
+        .session-info .title {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .session-info .subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .session-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .session-actions button {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 60px;
+            }
+            
+            .main {
+                margin-left: 60px;
+            }
+            
+            .sidebar h1 {
+                font-size: 12px;
+            }
+            
+            .nav-menu button {
+                padding: 8px;
+                font-size: 10px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>🎓 TapIn</h1>
+        <ul class="nav-menu">
+            <li><button class="nav-btn active" data-view="dashboard">📊 Dashboard</button></li>
+            <li><button class="nav-btn" data-view="sessions">📅 Sessions</button></li>
+            <li><button class="nav-btn" data-view="history">📋 History</button></li>
+        </ul>
+    </div>
+    
+    <div class="main">
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard" class="view active">
+            <div class="header">
+                <h2>Dashboard</h2>
+                <span id="sessionStatus" class="status-badge status-inactive">No Session Active</span>
+            </div>
+            
+            <div class="grid-2">
+                <div class="stat-box">
+                    <div class="value" id="presentCount">0</div>
+                    <div class="label">Present</div>
+                </div>
+                <div class="stat-box">
+                    <div class="value" id="lateCount">0</div>
+                    <div class="label">Late</div>
+                </div>
+                <div class="stat-box">
+                    <div class="value" id="absentCount">0</div>
+                    <div class="label">Absent</div>
+                </div>
+                <div class="stat-box">
+                    <div class="value" id="totalCount">0</div>
+                    <div class="label">Total Students</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Current Session</h3>
+                <div id="currentSessionInfo">
+                    <p>No session active. Go to <strong>Sessions</strong> to start one.</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Live Attendance Feed</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Card ID</th>
+                            <th>Seat</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="liveAttendanceBody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #999;">Waiting for attendance records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- SESSIONS VIEW -->
+        <div id="sessions" class="view">
+            <div class="header">
+                <h2>Sessions</h2>
+                <button class="btn-success" onclick="openSessionModal()">+ Create Session</button>
+            </div>
+            
+            <div class="card">
+                <h3>Active & Scheduled Sessions</h3>
+                <div id="sessionsList">
+                    <p>No sessions found. Create one to get started.</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Add Students to Active Session</h3>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="openAddStudentModal()">+ Add Student Manually</button>
+                    <button class="btn-primary" onclick="document.getElementById('csvUpload').click()">📤 Import CSV</button>
+                    <input type="file" id="csvUpload" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Student #</th>
+                            <th>Seat #</th>
+                            <th>UID</th>
+                            <th>BLE ID</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #999;">No students added yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- HISTORY VIEW -->
+        <div id="history" class="view">
+            <div class="header">
+                <h2>Session History</h2>
+            </div>
+            
+            <div class="card">
+                <h3>Past Sessions</h3>
+                <div id="pastSessionsList">
+                    <p>No past sessions found.</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Attendance Logs</h3>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="exportAttendanceCSV()">📥 Export as CSV</button>
+                    <button class="btn-secondary" onclick="exportAttendanceExcel()">📥 Export as Excel</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Student Name</th>
+                            <th>Seat</th>
+                            <th>Card ID</th>
+                            <th>BLE ID</th>
+                            <th>Timestamp</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #999;">No records found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CREATE SESSION MODAL -->
+    <div id="sessionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Session</h3>
+                <button class="close-btn" onclick="closeSessionModal()">&times;</button>
+            </div>
+            <form onsubmit="createSession(event)">
+                <div class="form-group">
+                    <label>Session Name</label>
+                    <input type="text" id="sessionName" required placeholder="e.g., CMPE 409 - May 28">
+                </div>
+                <div class="form-group">
+                    <label>Session Type</label>
+                    <select id="sessionType" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="class">Class</option>
+                        <option value="exam">Exam</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Instructor Name</label>
+                    <input type="text" id="instructorName" required placeholder="e.g., Engr. Rufo Marasigan Jr.">
+                </div>
+                <div class="form-group">
+                    <label>Number of Seats</label>
+                    <input type="number" id="numSeats" required value="30" min="1">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Time</label>
+                        <input type="datetime-local" id="startTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Time</label>
+                        <input type="datetime-local" id="endTime" required>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn-success">Create Session</button>
+                    <button type="button" class="btn-secondary" onclick="closeSessionModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ADD STUDENT MODAL -->
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Student</h3>
+                <button class="close-btn" onclick="closeStudentModal()">&times;</button>
+            </div>
+            <form onsubmit="addStudent(event)">
+                <div class="form-group">
+                    <label>Full Name (Last, First, MI)</label>
+                    <input type="text" id="studentName" required placeholder="e.g., Esparrago, Jonnah E.">
+                </div>
+                <div class="form-group">
+                    <label>Student Number</label>
+                    <input type="text" id="studentNumber" required placeholder="e.g., 2023-001234">
+                </div>
+                <div class="form-group">
+                    <label>Seat Number</label>
+                    <input type="number" id="seatNumber" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>RFID UID</label>
+                    <input type="text" id="rfidUID" required placeholder="e.g., 7301A138">
+                </div>
+                <div class="form-group">
+                    <label>BLE ID (UUID)</label>
+                    <input type="text" id="bleID" placeholder="Optional - auto-generated">
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn-success">Add Student</button>
+                    <button type="button" class="btn-secondary" onclick="closeStudentModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const SUPABASE_URL = "https://zwlizayjnnqgeuzxeqex.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bGl6YXlqbm5xZ2V1enhlcWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTQ3MTksImV4cCI6MjA5NDY5MDcxOX0.AHS4b-3YR9i_01AHgpw2rbaIi8-hLACIeOfChkMDsDM";
+        
+        let currentSession = null;
+        let allStudents = [];
+        let allAttendance = [];
+        let allSessions = [];
+        
+        // ===== SUPABASE FETCH FUNCTIONS =====
+        async function supabaseQuery(table, filters = {}) {
+            let url = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
+            
+            Object.entries(filters).forEach(([key, value]) => {
+                url += `&${key}=eq.${encodeURIComponent(value)}`;
+            });
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Supabase query error:', error);
+                return [];
+            }
+        }
+        
+        async function supabaseInsert(table, data) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Prefer": "return=minimal"
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    console.log('✓ Inserted to Supabase:', data);
+                    return true;
+                } else {
+                    console.error('✗ Supabase error:', response.status, responseText);
+                    alert('Error: ' + responseText);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Insert error:', error);
+                alert('Error: ' + error.message);
+                return false;
+            }
+        }
+        
+        async function supabaseDelete(table, id) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('Delete error:', error);
+                return false;
+            }
+        }
+        
+        // Navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const viewName = this.getAttribute('data-view');
+                showView(viewName);
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewName).classList.add('active');
+            
+            if (viewName === 'history') {
+                loadHistory();
+            } else if (viewName === 'sessions') {
+                loadSessions();
+            } else if (viewName === 'dashboard') {
+                updateDashboard();
+            }
+        }
+        
+        // Modal Functions
+        function openSessionModal() {
+            document.getElementById('sessionModal').classList.add('active');
+        }
+        
+        function closeSessionModal() {
+            document.getElementById('sessionModal').classList.remove('active');
+            document.querySelector('#sessionModal form').reset();
+        }
+        
+        function openAddStudentModal() {
+            document.getElementById('studentModal').classList.add('active');
+        }
+        
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.remove('active');
+            document.querySelector('#studentModal form').reset();
+        }
+        
+        // Create Session
+        async function createSession(e) {
+            e.preventDefault();
+            
+            const session = {
+                id: 'session_' + Date.now(),
+                name: document.getElementById('sessionName').value,
+                type: document.getElementById('sessionType').value,
+                instructor: document.getElementById('instructorName').value,
+                num_seats: parseInt(document.getElementById('numSeats').value),
+                start_time: document.getElementById('startTime').value,
+                end_time: document.getElementById('endTime').value,
+                status: 'scheduled',
+                created_at: new Date().toISOString()
+            };
+            
+            console.log('Creating session:', session);
+            
+            // Save to Supabase - match exact column names
+            const success = await supabaseInsert('sessions', {
+                id: session.id,
+                class_name: session.name,
+                instructor_name: session.instructor,
+                start_time: session.start_time,
+                end_time: session.end_time,
+                total_seats: session.num_seats,
+                status: session.status
+            });
+            
+            if (success) {
+                currentSession = session;
+                allStudents = [];
+                closeSessionModal();
+                alert('✓ Session created: ' + session.name);
+                loadSessions();
+            } else {
+                alert('✗ Failed to create session. Check browser console (F12)');
+            }
+        }
+        
+        // Add Student
+        async function addStudent(e) {
+            e.preventDefault();
+            
+            if (!currentSession) {
+                alert('Please create or select a session first');
+                return;
+            }
+            
+            const student = {
+                id: 'student_' + Date.now(),
+                session_id: currentSession.id,
+                name: document.getElementById('studentName').value,
+                student_number: document.getElementById('studentNumber').value,
+                seat_number: parseInt(document.getElementById('seatNumber').value),
+                rfid_uid: document.getElementById('rfidUID').value,
+                ble_id: document.getElementById('bleID').value || 'ble_' + Math.random().toString(36).substr(2, 9),
+                created_at: new Date().toISOString()
+            };
+            
+            // Save to Supabase (create a new students table or use attendance_logs)
+            const success = await supabaseInsert('students', {
+                name: student.name,
+                card_uid: student.rfid_uid,
+                ble_uuid: student.ble_id
+            });
+            
+            if (success) {
+                allStudents.push(student);
+                updateStudentsTable();
+                closeStudentModal();
+                alert('✓ Student added: ' + student.name);
+            } else {
+                alert('✗ Failed to add student');
+            }
+        }
+        
+        // CSV Upload
+        function handleCSVUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const csv = event.target.result;
+                const lines = csv.trim().split('\n');
+                
+                // Skip header
+                for (let i = 1; i < lines.length; i++) {
+                    const [name, studentNum, seat, uid, ble] = lines[i].split(',').map(s => s.trim());
+                    
+                    if (!name || !studentNum) continue;
+                    
+                    const student = {
+                        id: 'student_' + Date.now() + i,
+                        session_id: currentSession?.id,
+                        name,
+                        student_number: studentNum,
+                        seat_number: parseInt(seat) || 0,
+                        rfid_uid: uid || '',
+                        ble_id: ble || 'ble_' + Math.random().toString(36).substr(2, 9),
+                        created_at: new Date().toISOString()
+                    };
+                    
+                    allStudents.push(student);
+                }
+                
+                updateStudentsTable();
+                alert('Imported ' + (lines.length - 1) + ' students');
+            };
+            reader.readAsText(file);
+        }
+        
+        // Update UI
+        function updateStudentsTable() {
+            const tbody = document.getElementById('studentsTableBody');
+            
+            if (allStudents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No students added</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = allStudents.map(s => `
+                <tr>
+                    <td>${s.name}</td>
+                    <td>${s.student_number}</td>
+                    <td>${s.seat_number}</td>
+                    <td><code>${s.rfid_uid}</code></td>
+                    <td><code>${s.ble_id.substring(0, 8)}...</code></td>
+                    <td><button class="btn-danger" onclick="removeStudent('${s.id}')">Remove</button></td>
+                </tr>
+            `).join('');
+        }
+        
+        function removeStudent(id) {
+            allStudents = allStudents.filter(s => s.id !== id);
+            updateStudentsTable();
+        }
+        
+        function loadSessions() {
+            const list = document.getElementById('sessionsList');
+            list.innerHTML = '<p>Loading sessions...</p>';
+            
+            supabaseQuery('sessions').then(sessions => {
+                if (!sessions || sessions.length === 0) {
+                    list.innerHTML = '<p>No sessions found.</p>';
+                    return;
+                }
+                
+                allSessions = sessions;
+                list.innerHTML = sessions.map(s => `
+                    <div class="session-item">
+                        <div class="session-info">
+                            <div class="title">${s.class_name}</div>
+                            <div class="subtitle">
+                                <strong>${s.session_type === 'class' ? '📚 Class' : '✏️ Exam'}</strong> | 
+                                ${s.instructor_name} | 
+                                Seats: ${s.total_seats}
+                            </div>
+                        </div>
+                        <div class="session-actions">
+                            <button class="btn-success" onclick="selectSession('${s.id}')">Select</button>
+                            <button class="btn-danger" onclick="deleteSession('${s.id}')">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            });
+        }
+        
+        function selectSession(id) {
+            const session = allSessions.find(s => s.id === id);
+            if (session) {
+                currentSession = session;
+                allStudents = [];
+                alert('✓ Session selected: ' + session.class_name);
+                updateStudentsTable();
+            }
+        }
+        
+        function deleteSession(id) {
+            if (!confirm('Delete this session?')) return;
+            
+            supabaseDelete('sessions', id).then(success => {
+                if (success) {
+                    if (currentSession?.id === id) {
+                        currentSession = null;
+                        allStudents = [];
+                    }
+                    alert('✓ Session deleted');
+                    loadSessions();
+                } else {
+                    alert('✗ Failed to delete session');
+                }
+            });
+        }
+        
+        function updateDashboard() {
+            if (!currentSession) {
+                document.getElementById('currentSessionInfo').innerHTML = '<p>No session active. Go to Sessions to start one.</p>';
+                document.getElementById('sessionStatus').textContent = 'No Session Active';
+                document.getElementById('sessionStatus').className = 'status-badge status-inactive';
+                document.getElementById('presentCount').textContent = '0';
+                document.getElementById('lateCount').textContent = '0';
+                document.getElementById('absentCount').textContent = '0';
+                document.getElementById('totalCount').textContent = '0';
+                return;
+            }
+            
+            document.getElementById('currentSessionInfo').innerHTML = `
+                <p><strong>Session:</strong> ${currentSession.name}</p>
+                <p><strong>Type:</strong> ${currentSession.type === 'class' ? '📚 Class' : '✏️ Exam'}</p>
+                <p><strong>Instructor:</strong> ${currentSession.instructor}</p>
+                <p><strong>Students Registered:</strong> ${allStudents.length}</p>
+            `;
+            
+            document.getElementById('sessionStatus').textContent = 'Session Active';
+            document.getElementById('sessionStatus').className = 'status-badge status-active';
+            document.getElementById('totalCount').textContent = allStudents.length;
+        }
+        
+        function loadHistory() {
+            const historyBody = document.getElementById('historyTableBody');
+            historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading attendance data...</td></tr>';
+            
+            supabaseQuery('attendance_logs').then(logs => {
+                if (!logs || logs.length === 0) {
+                    historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No attendance records found</td></tr>';
+                    return;
+                }
+                
+                historyBody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${log.session_id}</td>
+                        <td>-</td>
+                        <td>${log.seat_number}</td>
+                        <td><code>${log.card_uid}</code></td>
+                        <td><code>-</code></td>
+                        <td>${new Date(log.created_at).toLocaleString()}</td>
+                        <td><span class="badge badge-${log.attendance_status.toLowerCase()}">${log.attendance_status}</span></td>
+                    </tr>
+                `).join('');
+            });
+        }
+        
+        function exportAttendanceCSV() {
+            alert('Export feature coming soon');
+        }
+        
+        function exportAttendanceExcel() {
+            alert('Export feature coming soon');
+        }
+        
+        // Initialize
+        window.addEventListener('load', function() {
+            console.log('✓ Dashboard loaded - Syncing with Supabase');
+            loadSessions();
+            
+            // Auto-refresh attendance every 3 seconds when on dashboard
+            setInterval(function() {
+                const dashboardTab = document.querySelector('.view.active');
+                if (dashboardTab.id === 'dashboard' && currentSession) {
+                    supabaseQuery('attendance_logs', { session_id: currentSession.id }).then(logs => {
+                        if (logs && logs.length > 0) {
+                            const liveBody = document.getElementById('liveAttendanceBody');
+                            liveBody.innerHTML = logs.slice(-10).map(log => `
+                                <tr>
+                                    <td>-</td>
+                                    <td><code>${log.card_uid}</code></td>
+                                    <td>${log.seat_number}</td>
+                                    <td><span class="badge badge-${log.attendance_status.toLowerCase()}">${log.attendance_status}</span></td>
+                                    <td>${new Date(log.created_at).toLocaleTimeString()}</td>
+                                </tr>
+                            `).join('');
+                            
+                            // Update stats
+                            const present = logs.filter(l => l.attendance_status === 'PRESENT').length;
+                            const late = logs.filter(l => l.attendance_status === 'LATE').length;
+                            const absent = logs.filter(l => l.attendance_status === 'ABSENT').length;
+                            
+                            document.getElementById('presentCount').textContent = present;
+                            document.getElementById('lateCount').textContent = late;
+                            document.getElementById('absentCount').textContent = absent;
+                        }
+                    });
+                }
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
