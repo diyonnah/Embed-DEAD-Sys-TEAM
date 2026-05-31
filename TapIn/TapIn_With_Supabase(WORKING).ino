@@ -10,6 +10,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <BLEDevice.h>
+#include <time.h>
 
 // ===== PIN DEFINITIONS =====
 #define SS_PIN 5
@@ -21,17 +23,30 @@
 #define SCL_PIN 22
 
 // ===== CONFIGURATION - UPDATE THESE =====
-const char* WIFI_SSID = "PLDTHOMEFIBR2a070";
-const char* WIFI_PASSWORD = "PLDTWIFlfmc27";
-const char* SUPABASE_URL = "https://zwlizayjnnqgeuzxeqex.supabase.co";
-const char* SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bGl6YXlqbm5xZ2V1enhlcWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTQ3MTksImV4cCI6MjA5NDY5MDcxOX0.AHS4b-3YR9i_01AHgpw2rbaIi8-hLACIeOfChkMDsDM";
+const char* WIFI_SSID = "CPE WIFI";
+const char* WIFI_PASSWORD = "CP3Wi-Fi2025**";
+const char* SUPABASE_URL = "https://rfgnfkpmnopptwmmlizf.supabase.co";
+const char* SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ25ma3Btbm9wcHR3bW1saXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjMxMjAsImV4cCI6MjA5NTUzOTEyMH0.8w1r9VWI2ybdcFJBRtewlwXNeTGRxpVY-FHbAqUpudc";
+const char* SUPABASE_STUDENTS_TABLE = "students"; // Must match your Supabase table name
+const char* SUPABASE_SESSIONS_TABLE = "sessions";
 
-// Session ID and timing
-String currentSessionId = "";
-unsigned long sessionStartTime = 0;
-const unsigned long ATTENDANCE_WINDOW_START = 0;
-const unsigned long ATTENDANCE_WINDOW_LATE = 300;     // 5 min
-const unsigned long ATTENDANCE_WINDOW_CLOSE = 600;    // 10 min
+// BLE settings
+const uint32_t BLE_SCAN_DURATION_SEC = 10; // Adjust to 10-15 seconds if needed
+const int BLE_RSSI_MIN = -75; // Reject weaker signals; adjust per room size
+
+// Session and time settings
+const long TIMEZONE_OFFSET_SEC = 8 * 3600; // UTC+8
+const long DAYLIGHT_OFFSET_SEC = 0;
+const unsigned long SESSION_SYNC_INTERVAL_MS = 30000;
+const unsigned long ATTENDANCE_LATE_WINDOW_SEC = 300; // 5 min from session start
+const unsigned long IDLE_DISPLAY_INTERVAL_MS = 2000;
+
+String activeSessionId = "";
+time_t sessionStartEpoch = 0;
+time_t sessionEndEpoch = 0;
+unsigned long lastSessionSyncMs = 0;
+unsigned long lastIdleDisplayMs = 0;
+bool hasActiveSession = false;
 
 // ===== HARDWARE OBJECTS =====
 MFRC522 rfid(SS_PIN, RST_PIN);
@@ -39,6 +54,7 @@ MFRC522::MIFARE_Key key;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 byte nuidPICC[4];
 bool wifiConnected = false;
+BLEScan* bleScan = nullptr;
 
 void setup() {
   Serial.begin(115200);
@@ -65,10 +81,18 @@ void setup() {
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
+
+  // ===== INITIALIZE BLE SCANNER =====
+  BLEDevice::init("");
+  bleScan = BLEDevice::getScan();
+  bleScan->setActiveScan(true);
+  bleScan->setInterval(100);
+  bleScan->setWindow(80);
   
-  // ===== START NEW SESSION =====
+  // ===== INITIALIZE TIME =====
   if (wifiConnected) {
-    startNewSession();
+    initTimeSync();
+    syncActiveSession();
   }
   
   lcd.clear();
@@ -83,6 +107,12 @@ void loop() {
   if (!wifiConnected && millis() % 5000 == 0) {
     connectToWiFi();
   }
+
+  if (wifiConnected && millis() - lastSessionSyncMs >= SESSION_SYNC_INTERVAL_MS) {
+    syncActiveSession();
+  }
+
+  updateIdleDisplay();
   
   if (!rfid.PICC_IsNewCardPresent())
     return;
@@ -132,18 +162,61 @@ void loop() {
   
   Serial.print("UID: ");
   Serial.println(cardUID);
-  
-  // ===== CALCULATE SEAT ASSIGNMENT =====
-  int seat = ((rfid.uid.uidByte[0] + rfid.uid.uidByte[1] + 
-               rfid.uid.uidByte[2] + rfid.uid.uidByte[3]) % 30) + 1;
+
+  if (!wifiConnected) {
+    rejectCard("No WiFi");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  // ===== FETCH STUDENT BLE UUID + SEAT =====
+  String expectedBleId = "";
+  int seat = -1;
+  if (!fetchStudentInfo(cardUID, expectedBleId, seat)) {
+    rejectCard("Unknown Card");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  if (!hasActiveSession) {
+    rejectCard("No Session");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  time_t nowEpoch = getNowEpoch();
+  if (nowEpoch == 0) {
+    rejectCard("No Time");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  // ===== BLE PROXIMITY VERIFICATION =====
+  if (!verifyBleProximity(expectedBleId)) {
+    rejectCard("Phone Not Detected");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
   
   // ===== DETERMINE ATTENDANCE STATUS =====
-  unsigned long elapsedTime = (millis() / 1000) - sessionStartTime;
   String status = "ABSENT";
-  
-  if (elapsedTime <= ATTENDANCE_WINDOW_LATE) {
+
+  if (nowEpoch < sessionStartEpoch) {
+    rejectCard("Not Started");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  time_t lateCutoff = sessionStartEpoch + ATTENDANCE_LATE_WINDOW_SEC;
+  if (nowEpoch <= lateCutoff) {
     status = "PRESENT";
-  } else if (elapsedTime <= ATTENDANCE_WINDOW_CLOSE) {
+  } else if (nowEpoch <= sessionEndEpoch) {
     status = "LATE";
   } else {
     status = "ABSENT";
@@ -166,8 +239,8 @@ void loop() {
   Serial.println(status);
   
   // ===== SEND TO SUPABASE =====
-  if (wifiConnected && currentSessionId != "") {
-    logAttendanceToSupabase(cardUID, seat, status);
+  if (wifiConnected && activeSessionId != "") {
+    logAttendanceToSupabase(cardUID, expectedBleId, seat, status, nowEpoch);
   }
   
   // ===== SUCCESS FEEDBACK =====
@@ -220,20 +293,25 @@ void connectToWiFi() {
   }
 }
 
-void startNewSession() {
-  Serial.println("Starting new session...");
-  
-  // Create a simple session ID (timestamp)
-  currentSessionId = String(millis() / 1000);
-  sessionStartTime = millis() / 1000;
-  
-  Serial.print("Session ID: ");
-  Serial.println(currentSessionId);
-  
-  // TODO: Can create session record in Supabase if needed
+void updateIdleDisplay() {
+  if (millis() - lastIdleDisplayMs < IDLE_DISPLAY_INTERVAL_MS) {
+    return;
+  }
+
+  lastIdleDisplayMs = millis();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  if (!hasActiveSession) {
+    lcd.print("No Active");
+    lcd.setCursor(0, 1);
+    lcd.print("Session");
+  } else {
+    lcd.print("TapIn Ready");
+  }
 }
 
-void logAttendanceToSupabase(String cardUID, int seat, String status) {
+void logAttendanceToSupabase(String cardUID, String bleId, int seat, String status, time_t timestamp) {
   if (!wifiConnected) {
     Serial.println("No WiFi - skipping Supabase sync");
     return;
@@ -246,16 +324,18 @@ void logAttendanceToSupabase(String cardUID, int seat, String status) {
   
   // Build JSON payload
   String jsonPayload = "{";
-  jsonPayload += "\"session_id\":\"" + currentSessionId + "\",";
+  jsonPayload += "\"session_id\":\"" + activeSessionId + "\",";
   jsonPayload += "\"card_uid\":\"" + cardUID + "\",";
+  jsonPayload += "\"ble_id\":\"" + bleId + "\",";
   jsonPayload += "\"seat_number\":" + String(seat) + ",";
   jsonPayload += "\"attendance_status\":\"" + status + "\",";
-  jsonPayload += "\"timestamp\":\"" + String(millis()) + "\"";
+  jsonPayload += "\"timestamp\":\"" + String((long)timestamp) + "\"";
   jsonPayload += "}";
   
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
   http.addHeader("Prefer", "return=minimal");
   
   Serial.println("Sending to Supabase...");
@@ -272,6 +352,182 @@ void logAttendanceToSupabase(String cardUID, int seat, String status) {
   }
   
   http.end();
+}
+
+void initTimeSync() {
+  configTime(TIMEZONE_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, "pool.ntp.org", "time.nist.gov");
+  setenv("TZ", "PHT-8", 1);
+  tzset();
+}
+
+time_t getNowEpoch() {
+  time_t now = time(nullptr);
+  if (now < 100000) {
+    return 0;
+  }
+  return now;
+}
+
+time_t parseSessionTime(const String& isoTime) {
+  if (isoTime.length() == 0) {
+    return 0;
+  }
+
+  String normalized = isoTime;
+  normalized.replace('T', ' ');
+
+  struct tm timeInfo;
+  memset(&timeInfo, 0, sizeof(timeInfo));
+
+  const char* formats[] = {"%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"};
+  for (size_t i = 0; i < 2; i++) {
+    char* parsed = strptime(normalized.c_str(), formats[i], &timeInfo);
+    if (parsed != nullptr) {
+      return mktime(&timeInfo);
+    }
+  }
+
+  return 0;
+}
+
+void syncActiveSession() {
+  lastSessionSyncMs = millis();
+  String sessionId = "";
+  time_t startEpoch = 0;
+  time_t endEpoch = 0;
+
+  if (!fetchActiveSession(sessionId, startEpoch, endEpoch)) {
+    hasActiveSession = false;
+    activeSessionId = "";
+    sessionStartEpoch = 0;
+    sessionEndEpoch = 0;
+    return;
+  }
+
+  activeSessionId = sessionId;
+  sessionStartEpoch = startEpoch;
+  sessionEndEpoch = endEpoch;
+  hasActiveSession = true;
+}
+
+bool fetchActiveSession(String& sessionIdOut, time_t& startOut, time_t& endOut) {
+  HTTPClient http;
+  String url = String(SUPABASE_URL) + "/rest/v1/" + SUPABASE_SESSIONS_TABLE +
+               "?status=eq.active&select=id,start_time,end_time&order=start_time.desc&limit=1";
+
+  http.begin(url);
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode <= 0) {
+    Serial.print("Session lookup failed: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err || !doc.is<JsonArray>() || doc.size() == 0) {
+    return false;
+  }
+
+  JsonObject session = doc[0];
+  if (!session.containsKey("id") || !session.containsKey("start_time") || !session.containsKey("end_time")) {
+    return false;
+  }
+
+  sessionIdOut = String((const char*)session["id"]);
+  startOut = parseSessionTime(String((const char*)session["start_time"]));
+  endOut = parseSessionTime(String((const char*)session["end_time"]));
+
+  return sessionIdOut.length() > 0 && startOut > 0 && endOut > 0;
+}
+
+bool fetchStudentInfo(const String& cardUID, String& bleIdOut, int& seatOut) {
+  HTTPClient http;
+  String url = String(SUPABASE_URL) + "/rest/v1/" + SUPABASE_STUDENTS_TABLE +
+               "?card_uid=eq." + cardUID + "&select=ble_id,seat_number";
+
+  http.begin(url);
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode <= 0) {
+    Serial.print("Student lookup failed: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err) {
+    Serial.println("Student JSON parse error");
+    return false;
+  }
+
+  if (!doc.is<JsonArray>() || doc.size() == 0) {
+    return false;
+  }
+
+  JsonObject student = doc[0];
+  if (!student.containsKey("ble_id") || !student.containsKey("seat_number")) {
+    return false;
+  }
+
+  bleIdOut = String((const char*)student["ble_id"]);
+  seatOut = student["seat_number"].as<int>();
+  return bleIdOut.length() > 0 && seatOut > 0;
+}
+
+bool verifyBleProximity(const String& expectedUuid) {
+  if (expectedUuid.length() == 0 || bleScan == nullptr) {
+    return false;
+  }
+
+  Serial.println("Scanning BLE...");
+  BLEScanResults* results = bleScan->start(BLE_SCAN_DURATION_SEC, false);
+  bool found = false;
+
+  if (results == nullptr) {
+    return false;
+  }
+
+  for (int i = 0; i < results->getCount(); i++) {
+    BLEAdvertisedDevice device = results->getDevice(i);
+    if (!device.haveServiceUUID()) {
+      continue;
+    }
+
+    if (device.getRSSI() < BLE_RSSI_MIN) {
+      continue;
+    }
+
+    BLEUUID serviceUuid = device.getServiceUUID();
+    String serviceUuidStr = String(serviceUuid.toString().c_str());
+    serviceUuidStr.toUpperCase();
+
+    String expectedUpper = expectedUuid;
+    expectedUpper.toUpperCase();
+
+    if (serviceUuidStr == expectedUpper) {
+      found = true;
+      break;
+    }
+  }
+
+  bleScan->clearResults();
+  Serial.println(found ? "BLE verified" : "BLE not found");
+  return found;
 }
 
 void rejectCard(String reason) {
@@ -292,7 +548,5 @@ void rejectCard(String reason) {
   digitalWrite(RED_LED, LOW);
   
   delay(2000);
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("TapIn Ready");
+  updateIdleDisplay();
 }

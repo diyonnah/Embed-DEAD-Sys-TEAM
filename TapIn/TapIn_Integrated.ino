@@ -1,4 +1,78 @@
-<!DOCTYPE html>
+// ============================================
+// TapIn - Smart Classroom Attendance System
+// RFID + LCD + WiFi + Supabase + Embedded Dashboard
+// ============================================
+
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <BLEDevice.h>
+#include <WebServer.h>
+#include <time.h>
+
+// ===== PIN DEFINITIONS =====
+#define SS_PIN 5
+#define RST_PIN 0
+#define GREEN_LED 35
+#define RED_LED 32
+#define BUZZER 34
+#define SDA_PIN 21
+#define SCL_PIN 22
+
+// ===== CONFIGURATION - UPDATE THESE =====
+const char* WIFI_SSID = "CPE WIFI";
+const char* WIFI_PASSWORD = "CP3Wi-Fi2025**";
+const char* SUPABASE_REST_BASE = "https://rfgnfkpmnopptwmmlizf.supabase.co/rest/v1";
+const char* SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ25ma3Btbm9wcHR3bW1saXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjMxMjAsImV4cCI6MjA5NTUzOTEyMH0.8w1r9VWI2ybdcFJBRtewlwXNeTGRxpVY-FHbAqUpudc";
+const char* SUPABASE_STUDENTS_TABLE = "students";
+const char* SUPABASE_SESSIONS_TABLE = "sessions";
+
+// BLE settings
+const uint32_t BLE_SCAN_DURATION_SEC = 10; // Adjust to 10-15 seconds if needed
+const int BLE_RSSI_MIN = -75; // Reject weaker signals; adjust per room size
+
+// Session and time settings
+const long TIMEZONE_OFFSET_SEC = 8 * 3600; // UTC+8
+const long DAYLIGHT_OFFSET_SEC = 0;
+const unsigned long SESSION_SYNC_INTERVAL_MS = 30000;
+const unsigned long ATTENDANCE_LATE_WINDOW_SEC = 300; // 5 min from session start
+const unsigned long IDLE_DISPLAY_INTERVAL_MS = 2000;
+
+String activeSessionId = "";
+time_t sessionStartEpoch = 0;
+time_t sessionEndEpoch = 0;
+unsigned long lastSessionSyncMs = 0;
+unsigned long lastIdleDisplayMs = 0;
+bool hasActiveSession = false;
+
+// ===== HARDWARE OBJECTS =====
+MFRC522 rfid(SS_PIN, RST_PIN);
+MFRC522::MIFARE_Key key;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+byte nuidPICC[4];
+bool wifiConnected = false;
+BLEScan* bleScan = nullptr;
+WebServer server(80);
+
+// ===== FORWARD DECLARATIONS =====
+void connectToWiFi();
+void updateIdleDisplay();
+void logAttendanceToSupabase(String cardUID, String bleId, int seat, String status, time_t timestamp);
+void initTimeSync();
+time_t getNowEpoch();
+time_t parseSessionTime(const String& isoTime);
+void syncActiveSession();
+bool fetchActiveSession(String& sessionIdOut, time_t& startOut, time_t& endOut);
+bool fetchStudentInfo(const String& cardUID, String& bleIdOut, int& seatOut);
+bool verifyBleProximity(const String& expectedUuid);
+void rejectCard(String reason);
+
+// ===== EMBEDDED DASHBOARD =====
+const char INDEX_HTML[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -945,7 +1019,7 @@
     </div>
     
     <script>
-        const SUPABASE_URL = "https://rfgnfkpmnopptwmmlizf.supabase.co";
+        const SUPABASE_URL = "https://rfgnfkpmnopptwmmlizf.supabase.co/rest/v1/";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ25ma3Btbm9wcHR3bW1saXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjMxMjAsImV4cCI6MjA5NTUzOTEyMH0.8w1r9VWI2ybdcFJBRtewlwXNeTGRxpVY-FHbAqUpudc";
         
         let currentSession = null;
@@ -1042,41 +1116,6 @@
                 return response.ok;
             } catch (error) {
                 console.error('Update error:', error);
-                return false;
-            }
-        }
-
-        async function supabaseUpdateByField(table, field, value, data) {
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${field}=eq.${encodeURIComponent(value)}`, {
-                    method: 'PATCH',
-                    headers: {
-                        "Content-Type": "application/json",
-                        "apikey": SUPABASE_KEY,
-                        "Authorization": `Bearer ${SUPABASE_KEY}`,
-                        "Prefer": "return=minimal"
-                    },
-                    body: JSON.stringify(data)
-                });
-                return response.ok;
-            } catch (error) {
-                console.error('Update by field error:', error);
-                return false;
-            }
-        }
-
-        async function supabaseDeleteByField(table, field, value) {
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${field}=eq.${encodeURIComponent(value)}`, {
-                    method: 'DELETE',
-                    headers: {
-                        "apikey": SUPABASE_KEY,
-                        "Authorization": `Bearer ${SUPABASE_KEY}`
-                    }
-                });
-                return response.ok;
-            } catch (error) {
-                console.error('Delete by field error:', error);
                 return false;
             }
         }
@@ -1193,7 +1232,7 @@
             blePanel.innerHTML = '';
         }
 
-        async function handleStudentRegistration(e) {
+        function handleStudentRegistration(e) {
             e.preventDefault();
             const existingProfile = getStoredStudentProfile();
 
@@ -1202,31 +1241,10 @@
                 return;
             }
 
-            const nameInput = document.getElementById('studentPortalName').value.trim();
-            const cardIdInput = document.getElementById('studentPortalCardId').value.trim();
-
-            const students = await supabaseQuery('students', { card_uid: cardIdInput });
-            if (!students || students.length === 0) {
-                alert('Student not found. Please consult faculty to register your card.');
-                return;
-            }
-
-            const student = students[0];
-            let bleId = student.ble_id || '';
-
-            if (!bleId) {
-                bleId = generateBLEId();
-                const updated = await supabaseUpdateByField('students', 'card_uid', cardIdInput, { ble_id: bleId });
-                if (!updated) {
-                    alert('Failed to save BLE ID. Please try again.');
-                    return;
-                }
-            }
-
             const profile = {
-                name: nameInput || student.name || 'Student',
-                card_id: cardIdInput,
-                ble_id: bleId,
+                name: document.getElementById('studentPortalName').value.trim(),
+                card_id: document.getElementById('studentPortalCardId').value.trim(),
+                ble_id: generateBLEId(),
                 created_at: new Date().toISOString()
             };
 
@@ -1400,8 +1418,6 @@
             const success = await supabaseInsert('sessions', {
                 id: session.id,
                 class_name: session.name,
-                session_type: session.type,
-                section_name: session.section_name,
                 instructor_name: session.instructor,
                 start_time: session.start_time,
                 end_time: session.end_time,
@@ -1433,42 +1449,17 @@
                 return;
             }
             
-            const cardId = document.getElementById('rfidUID').value.trim();
-            const bleInput = document.getElementById('bleID').value.trim();
-            const bleValue = bleInput.length > 0 ? bleInput : null;
-
             const student = {
                 id: editId || 'student_' + Date.now(),
                 section_id: section.id,
                 name: document.getElementById('studentName').value,
                 student_number: document.getElementById('studentNumber').value,
                 seat_number: parseInt(document.getElementById('seatNumber').value),
-                card_id: cardId,
-                rfid_uid: cardId,
-                ble_id: bleValue,
+                card_id: document.getElementById('rfidUID').value,
+                rfid_uid: document.getElementById('rfidUID').value,
+                ble_id: document.getElementById('bleID').value || generateBLEId(),
                 created_at: new Date().toISOString()
             };
-
-            const payload = {
-                name: student.name,
-                student_number: student.student_number,
-                seat_number: student.seat_number,
-                card_uid: cardId,
-                ble_id: bleValue
-            };
-
-            const synced = editId
-                ? await supabaseUpdateByField('students', 'card_uid', cardId, payload)
-                : await supabaseInsert('students', payload);
-
-            if (!synced) {
-                alert('✗ Failed to save student to Supabase. Check console (F12).');
-                return;
-            }
-
-            await supabaseUpdateByField('students', 'card_uid', cardId, {
-                section_name: section.name
-            });
             
             if (editId) {
                 section.students = section.students.map(item => item.id === editId ? { ...item, ...student } : item);
@@ -1520,7 +1511,6 @@
             saveSections();
             hideAddSectionForm();
             renderStudentsView();
-            supabaseInsert('sections', { name: section.name });
         }
 
         function toggleSection(id) {
@@ -1543,15 +1533,6 @@
             }
 
             if (!confirm('Delete this section and its student list?')) return;
-
-            section.students.forEach(student => {
-                const cardId = String(student.card_id || student.rfid_uid || '').trim();
-                if (cardId) {
-                    supabaseDeleteByField('students', 'card_uid', cardId);
-                }
-            });
-
-            supabaseDeleteByField('sections', 'name', section.name);
 
             sections = sections.filter(item => item.id !== section.id);
             Object.entries(sessionSectionMap).forEach(([sessionId, sectionId]) => {
@@ -1708,7 +1689,7 @@
             }
             
             const reader = new FileReader();
-            reader.onload = async function(event) {
+            reader.onload = function(event) {
                 const workbook = XLSX.read(event.target.result, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
@@ -1760,7 +1741,7 @@
                         seat_number: parseInt(seatNumber) || seatNumber,
                         card_id: cardId,
                         rfid_uid: cardId,
-                        ble_id: bleId || null,
+                        ble_id: bleId || generateBLEId(),
                         sync_action: action,
                         created_at: new Date().toISOString()
                     });
@@ -1769,21 +1750,6 @@
                 if (importedStudents.length === 0) {
                     alert('No students imported. Please check that the Excel file has complete student rows.');
                     return;
-                }
-
-                for (const student of importedStudents) {
-                    await supabaseInsert('students', {
-                        section_name: section.name,
-                        name: student.name,
-                        student_number: student.student_number,
-                        seat_number: student.seat_number,
-                        card_uid: student.card_id,
-                        ble_id: student.ble_id
-                    });
-
-                    await supabaseUpdateByField('students', 'card_uid', student.card_id, {
-                        section_name: section.name
-                    });
                 }
 
                 section.students.push(...importedStudents);
@@ -1800,11 +1766,6 @@
             if (!section) return;
 
             if (!confirm('Delete this student?')) return;
-            const student = section.students.find(s => s.id === id);
-            const cardId = String(student?.card_id || student?.rfid_uid || '').trim();
-            if (cardId) {
-                supabaseDeleteByField('students', 'card_uid', cardId);
-            }
             section.students = section.students.filter(s => s.id !== id);
             saveSections();
             renderSectionsList();
@@ -2110,3 +2071,508 @@
     </script>
 </body>
 </html>
+)HTML";
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  
+  // ===== INITIALIZE GPIO =====
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(RED_LED, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+  
+  // ===== INITIALIZE LCD =====
+  Wire.begin(SDA_PIN, SCL_PIN);
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting WiFi");
+  
+  // ===== INITIALIZE WIFI =====
+  connectToWiFi();
+  
+  // ===== INITIALIZE RFID =====
+  SPI.begin();
+  rfid.PCD_Init();
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
+  }
+
+  // ===== INITIALIZE BLE SCANNER =====
+  BLEDevice::init("");
+  bleScan = BLEDevice::getScan();
+  bleScan->setActiveScan(true);
+  bleScan->setInterval(100);
+  bleScan->setWindow(80);
+  
+  // ===== INITIALIZE TIME =====
+  if (wifiConnected) {
+    initTimeSync();
+    syncActiveSession();
+  }
+
+  // ===== START WEB SERVER =====
+  server.on("/", []() {
+    server.send_P(200, "text/html", INDEX_HTML);
+  });
+  server.onNotFound([]() {
+    server.send(404, "text/plain", "Not found");
+  });
+  server.begin();
+  
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("TapIn Ready");
+  Serial.println("System Ready - Tap card to begin");
+  delay(500);
+}
+
+void loop() {
+  server.handleClient();
+
+  // Check WiFi connection periodically
+  if (!wifiConnected && millis() % 5000 == 0) {
+    connectToWiFi();
+  }
+
+  if (wifiConnected && millis() - lastSessionSyncMs >= SESSION_SYNC_INTERVAL_MS) {
+    syncActiveSession();
+  }
+
+  updateIdleDisplay();
+  
+  if (!rfid.PICC_IsNewCardPresent())
+    return;
+
+  if (!rfid.PICC_ReadCardSerial())
+    return;
+
+  Serial.println(">>> Card Detected!");
+  
+  // ===== CARD TYPE VALIDATION =====
+  MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
+  if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI && 
+      piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
+      piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
+    
+    rejectCard("Bad Card");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  // ===== DUPLICATE CARD CHECK =====
+  if (rfid.uid.uidByte[0] == nuidPICC[0] && 
+      rfid.uid.uidByte[1] == nuidPICC[1] && 
+      rfid.uid.uidByte[2] == nuidPICC[2] && 
+      rfid.uid.uidByte[3] == nuidPICC[3]) {
+    
+    Serial.println("Duplicate tap (ignoring)");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    delay(500);
+    return;
+  }
+  
+  // Store card UID
+  for (byte i = 0; i < 4; i++) {
+    nuidPICC[i] = rfid.uid.uidByte[i];
+  }
+  
+  // ===== GET CARD UID STRING =====
+  String cardUID = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) cardUID += "0";
+    cardUID += String(rfid.uid.uidByte[i], HEX);
+  }
+  cardUID.toUpperCase();
+  
+  Serial.print("UID: ");
+  Serial.println(cardUID);
+
+  if (!wifiConnected) {
+    rejectCard("No WiFi");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  // ===== FETCH STUDENT BLE UUID + SEAT =====
+  String expectedBleId = "";
+  int seat = -1;
+  if (!fetchStudentInfo(cardUID, expectedBleId, seat)) {
+    rejectCard("Unknown Card");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  if (!hasActiveSession) {
+    rejectCard("No Session");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  time_t nowEpoch = getNowEpoch();
+  if (nowEpoch == 0) {
+    rejectCard("No Time");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  // ===== BLE PROXIMITY VERIFICATION =====
+  if (!verifyBleProximity(expectedBleId)) {
+    rejectCard("Phone Not Detected");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+  
+  // ===== DETERMINE ATTENDANCE STATUS =====
+  String status = "ABSENT";
+
+  if (nowEpoch < sessionStartEpoch) {
+    rejectCard("Not Started");
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  time_t lateCutoff = sessionStartEpoch + ATTENDANCE_LATE_WINDOW_SEC;
+  if (nowEpoch <= lateCutoff) {
+    status = "PRESENT";
+  } else if (nowEpoch <= sessionEndEpoch) {
+    status = "LATE";
+  } else {
+    status = "ABSENT";
+  }
+  
+  // ===== DISPLAY ON LCD =====
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Seat: ");
+  lcd.print(seat);
+  lcd.print(" ");
+  lcd.print(status);
+  lcd.setCursor(0, 1);
+  lcd.print("ID: ");
+  lcd.print(cardUID);
+  
+  Serial.print("Seat: ");
+  Serial.println(seat);
+  Serial.print("Status: ");
+  Serial.println(status);
+  
+  // ===== SEND TO SUPABASE =====
+  if (wifiConnected && activeSessionId != "") {
+    logAttendanceToSupabase(cardUID, expectedBleId, seat, status, nowEpoch);
+  }
+  
+  // ===== SUCCESS FEEDBACK =====
+  digitalWrite(GREEN_LED, HIGH);
+  digitalWrite(BUZZER, HIGH);
+  delay(100);
+  digitalWrite(BUZZER, LOW);
+  delay(100);
+  digitalWrite(BUZZER, HIGH);
+  delay(100);
+  digitalWrite(BUZZER, LOW);
+  digitalWrite(GREEN_LED, LOW);
+  
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+  delay(1000);
+  
+  // Return to ready state
+  updateIdleDisplay();
+}
+
+// ===== HELPER FUNCTIONS =====
+
+void connectToWiFi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiConnected = true;
+    return;
+  }
+  
+  Serial.println("\nConnecting to WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 15) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✓ WiFi Connected!");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    wifiConnected = true;
+  } else {
+    Serial.println("\n✗ WiFi Failed");
+    wifiConnected = false;
+  }
+}
+
+void updateIdleDisplay() {
+  if (millis() - lastIdleDisplayMs < IDLE_DISPLAY_INTERVAL_MS) {
+    return;
+  }
+
+  lastIdleDisplayMs = millis();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  if (!hasActiveSession) {
+    lcd.print("No Active");
+    lcd.setCursor(0, 1);
+    lcd.print("Session");
+  } else {
+    lcd.print("TapIn Ready");
+  }
+}
+
+void logAttendanceToSupabase(String cardUID, String bleId, int seat, String status, time_t timestamp) {
+  if (!wifiConnected) {
+    Serial.println("No WiFi - skipping Supabase sync");
+    return;
+  }
+  
+  HTTPClient http;
+  
+  // Build the API endpoint
+  String url = String(SUPABASE_REST_BASE) + "/attendance_logs";
+  
+  // Build JSON payload
+  String jsonPayload = "{";
+  jsonPayload += "\"session_id\":\"" + activeSessionId + "\",";
+  jsonPayload += "\"card_uid\":\"" + cardUID + "\",";
+  jsonPayload += "\"ble_id\":\"" + bleId + "\",";
+  jsonPayload += "\"seat_number\":" + String(seat) + ",";
+  jsonPayload += "\"attendance_status\":\"" + status + "\",";
+  jsonPayload += "\"timestamp\":\"" + String((long)timestamp) + "\"";
+  jsonPayload += "}";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
+  http.addHeader("Prefer", "return=minimal");
+  
+  Serial.println("Sending to Supabase...");
+  Serial.println(jsonPayload);
+  
+  int httpResponseCode = http.POST(jsonPayload);
+  
+  if (httpResponseCode > 0) {
+    Serial.print("✓ Response Code: ");
+    Serial.println(httpResponseCode);
+  } else {
+    Serial.print("✗ Error: ");
+    Serial.println(httpResponseCode);
+  }
+  
+  http.end();
+}
+
+void initTimeSync() {
+  configTime(TIMEZONE_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, "pool.ntp.org", "time.nist.gov");
+  setenv("TZ", "PHT-8", 1);
+  tzset();
+}
+
+time_t getNowEpoch() {
+  time_t now = time(nullptr);
+  if (now < 100000) {
+    return 0;
+  }
+  return now;
+}
+
+time_t parseSessionTime(const String& isoTime) {
+  if (isoTime.length() == 0) {
+    return 0;
+  }
+
+  String normalized = isoTime;
+  normalized.replace('T', ' ');
+
+  struct tm timeInfo;
+  memset(&timeInfo, 0, sizeof(timeInfo));
+
+  const char* formats[] = {"%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"};
+  for (size_t i = 0; i < 2; i++) {
+    char* parsed = strptime(normalized.c_str(), formats[i], &timeInfo);
+    if (parsed != nullptr) {
+      return mktime(&timeInfo);
+    }
+  }
+
+  return 0;
+}
+
+void syncActiveSession() {
+  lastSessionSyncMs = millis();
+  String sessionId = "";
+  time_t startEpoch = 0;
+  time_t endEpoch = 0;
+
+  if (!fetchActiveSession(sessionId, startEpoch, endEpoch)) {
+    hasActiveSession = false;
+    activeSessionId = "";
+    sessionStartEpoch = 0;
+    sessionEndEpoch = 0;
+    return;
+  }
+
+  activeSessionId = sessionId;
+  sessionStartEpoch = startEpoch;
+  sessionEndEpoch = endEpoch;
+  hasActiveSession = true;
+}
+
+bool fetchActiveSession(String& sessionIdOut, time_t& startOut, time_t& endOut) {
+  HTTPClient http;
+  String url = String(SUPABASE_REST_BASE) + "/" + SUPABASE_SESSIONS_TABLE +
+               "?status=eq.active&select=id,start_time,end_time&order=start_time.desc&limit=1";
+
+  http.begin(url);
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode <= 0) {
+    Serial.print("Session lookup failed: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err || !doc.is<JsonArray>() || doc.size() == 0) {
+    return false;
+  }
+
+  JsonObject session = doc[0];
+  if (!session.containsKey("id") || !session.containsKey("start_time") || !session.containsKey("end_time")) {
+    return false;
+  }
+
+  sessionIdOut = String((const char*)session["id"]);
+  startOut = parseSessionTime(String((const char*)session["start_time"]));
+  endOut = parseSessionTime(String((const char*)session["end_time"]));
+
+  return sessionIdOut.length() > 0 && startOut > 0 && endOut > 0;
+}
+
+bool fetchStudentInfo(const String& cardUID, String& bleIdOut, int& seatOut) {
+  HTTPClient http;
+  String url = String(SUPABASE_REST_BASE) + "/" + SUPABASE_STUDENTS_TABLE +
+               "?card_uid=eq." + cardUID + "&select=ble_id,seat_number";
+
+  http.begin(url);
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_KEY));
+  http.addHeader("apikey", String(SUPABASE_KEY));
+
+  int httpResponseCode = http.GET();
+  if (httpResponseCode <= 0) {
+    Serial.print("Student lookup failed: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<512> doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err) {
+    Serial.println("Student JSON parse error");
+    return false;
+  }
+
+  if (!doc.is<JsonArray>() || doc.size() == 0) {
+    return false;
+  }
+
+  JsonObject student = doc[0];
+  if (!student.containsKey("ble_id") || !student.containsKey("seat_number")) {
+    return false;
+  }
+
+  bleIdOut = String((const char*)student["ble_id"]);
+  seatOut = student["seat_number"].as<int>();
+  return bleIdOut.length() > 0 && seatOut > 0;
+}
+
+bool verifyBleProximity(const String& expectedUuid) {
+  if (expectedUuid.length() == 0 || bleScan == nullptr) {
+    return false;
+  }
+
+  Serial.println("Scanning BLE...");
+    BLEScanResults* results = bleScan->start(BLE_SCAN_DURATION_SEC, false);
+  bool found = false;
+
+    if (results == nullptr) {
+        return false;
+    }
+
+    for (int i = 0; i < results->getCount(); i++) {
+        BLEAdvertisedDevice device = results->getDevice(i);
+    if (!device.haveServiceUUID()) {
+      continue;
+    }
+
+    if (device.getRSSI() < BLE_RSSI_MIN) {
+      continue;
+    }
+
+    BLEUUID serviceUuid = device.getServiceUUID();
+    String serviceUuidStr = String(serviceUuid.toString().c_str());
+    serviceUuidStr.toUpperCase();
+
+    String expectedUpper = expectedUuid;
+    expectedUpper.toUpperCase();
+
+    if (serviceUuidStr == expectedUpper) {
+      found = true;
+      break;
+    }
+  }
+
+  bleScan->clearResults();
+  Serial.println(found ? "BLE verified" : "BLE not found");
+  return found;
+}
+
+void rejectCard(String reason) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("REJECTED");
+  lcd.setCursor(0, 1);
+  lcd.print(reason);
+  
+  Serial.print("REJECT: ");
+  Serial.println(reason);
+  
+  // Red LED + Buzzer
+  digitalWrite(RED_LED, HIGH);
+  digitalWrite(BUZZER, HIGH);
+  delay(500);
+  digitalWrite(BUZZER, LOW);
+  digitalWrite(RED_LED, LOW);
+  
+  delay(2000);
+  updateIdleDisplay();
+}
